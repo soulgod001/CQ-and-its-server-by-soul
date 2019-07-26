@@ -49,15 +49,18 @@ public:
 	char *listprop(int64_t QQID);
 	char *raffle(int64_t QQID);
 	int getmaster(masterlist *master, int64_t QQID);
-	int listslave(int64_t *list, int64_t QQID);
+	int listslave(int64_t *list, int64_t QQID); //mark 将返回数据列表改为直接返回可发送的消息，发送消息格式为QQID（name）（近日签到状态）
 	int deleteslave(int64_t slave);
-	int buyslave(int64_t slave, int64_t masterid, int ransom, time_t date);
+	int buy_back(int64_t QQID);
 	int buyslave(int64_t masterID, int64_t slaveID);
+	int slave_putname(int64_t masterID, int64_t slaveID, char *name);
+	int64_t getIDbyname_slave(int64_t user, char *name);
+	char *buycheck(int64_t masterID, int64_t slaveID);
+	bool put_Administorforgroup(int64_t QQID, int64_t GroupID, int rank);//mark 还未完成的功能
 	char *sign(int64_t QQID, int64_t groupid);
-	int listsign(int64_t QQID, int64_t groupid, char *date);
 	int changeintegral(int64_t QQID, int number,int type);
-	int changedate(int64_t QQID, int64_t fromGroup, char *date);
 	int getintegral(int64_t QQID,QDdata *sign);
+	char *getat(int64_t QQID);
 	char *ask(char *content);
 	char *askagain(char *content);
 	int getweatherlist(int64_t *grouplist, int kind);
@@ -101,6 +104,15 @@ int connection::getweatherlist(int64_t *grouplist, int kind)
 		grouplist[n] = atoll(substring);
 	}
 	return 1;
+}
+
+//
+char *connection::getat(int64_t QQID)
+{
+	char sendmsg[20];
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:sign\naction:getat\nsendby:soul", QQID);
+	return ask(sendmsg);
 }
 //失败返回NULL
 char *connection::ask(char *content)
@@ -197,13 +209,6 @@ char *connection::sign(int64_t QQID, int64_t groupid)
 	return ask(sendmsg);
 }
 
-int connection::listsign(int64_t QQID, int64_t groupid, char *date)
-{
-	char sendmsg[200];
-	memset(sendmsg, 0, sizeof(sendmsg));
-	sprintf_s(sendmsg, "user:%lld\ntype:sign\naction:list\ngroupid:%lld\ndate:%s\nsendby:soul", QQID, groupid, date);
-	return atoi(ask(sendmsg));
-}
 //成功将数值存储到sign中并返回1，失败则返回0
 int connection::getintegral(int64_t QQID, QDdata *sign)
 {
@@ -275,29 +280,92 @@ int connection::changeintegral(int64_t QQID, int number, int type)
 		return atoi(ask(sendmsg));
 	}
 }
-//成功返回1，失败返回0
-int connection::buyslave(int64_t slave, int64_t masterid, int ransom, time_t date)
+//成功赎回返回1，无需赎回返回2，积分不足返回-number，number为赎回所需积分数，出错返回0
+int connection::buy_back(int64_t QQID)
 {
 	char sendmsg[200];
+	char *recData = NULL;
 	memset(sendmsg, 0, sizeof(sendmsg));
-	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:buy\nransom:%d\nid:%lld\ndate:%ld\nsendby:soul", masterid, ransom, slave, date);
-	return atoi(ask(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:buy_back\nsendby:soul",QQID);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
 }
-//
+//向服务器发出购买奴隶请求，成功返回1，错误返回0，对方自动使用保护卡返回-1
 int connection::buyslave(int64_t masterID, int64_t slaveID)
 {
 	char sendmsg[200];
+	char *recData = NULL;
 	memset(sendmsg, 0, sizeof(sendmsg));
 	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:buy\nslaveid:%lld\nsendby:soul", masterID, slaveID);
-	return atoi(ask(sendmsg));
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//检测是否可以购买某个玩家，在保护期内不可购买返回-1+msg，需要消耗强制购买卡返回-1+msg
+//购买自己的奴隶返回-1+msg，试图购买自己的主人返回-1+msg，新手保护期返回-1+msg
+//积分不够返回-1+msg，错误返回0，可购买返回购买需要的1+msg，需要消耗强制购买卡返回1+msg
+char *connection::buycheck(int64_t masterID, int64_t slaveID)
+{
+	char sendmsg[200];
+	char *recData = NULL;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:buycheck\nslaveid:%lld\nsendby:soul", masterID, slaveID);
+	recData = ask(sendmsg);
+	return recData;
+}
+//
+bool connection::put_Administorforgroup(int64_t QQID, int64_t GroupID, int rank)
+{
+
+}
+//以奴隶主的身份使用取名卡为奴隶取名，成功返回1，失败返回0，缺少取名卡返回-2，不是对方的主人返回-1
+int connection::slave_putname(int64_t masterID, int64_t slaveID, char *name)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:putname\nslaveid:%lld\nname:%s\nsendby:soul", masterID, slaveID, name);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//根据name和user获取对方的id，若不存在该name返回-1，存在且该User为其主人返回1，若存在且该User不为其主人返回其id，出错返回0
+int64_t connection::getIDbyname_slave(int64_t user, char *name)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:getidbyname\nname:%s\nsendby:soul",user, name);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoll(recData);
 }
 //成功返回1，失败返回0
 int connection::deleteslave(int64_t slave)
 {
 	char sendmsg[200];
+	char *recData;
 	memset(sendmsg, 0, sizeof(sendmsg));
 	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:delete\nsendby:soul", slave);
-	return atoi(ask(sendmsg));
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
 }
 //成功返回1，失败返回0
 int connection::listslave(int64_t *list, int64_t QQID)
@@ -327,6 +395,8 @@ int connection::listslave(int64_t *list, int64_t QQID)
 		t = 0;
 		list[x] = atoll(sub);
 		x++;
+		if (x == 10)
+			break;
 		memset(sub,0,sizeof(sub));
 	}
 	return 1;
@@ -444,14 +514,6 @@ bool connection::init(int number)
 	serAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");
 	return 1;
 }
-int connection::changedate(int64_t QQID, int64_t fromGroup, char *date)
-{
-	char sendmsg[200];
-	memset(sendmsg, 0, sizeof(sendmsg));
-	sprintf_s(sendmsg, "user:%lld\ntype:sign\naction:date\ngroupid:%lld\ndate:%s\nsendby:soul", QQID, fromGroup, date);
-	return atoi(ask(sendmsg));
-}
-
 
 class game //gameroom and gamemember and gamedata
 {
@@ -501,8 +563,11 @@ private:
 };
 bool game::killtimer()
 {
-	timeKillEvent(timer_id);
-	CQ_addLog(AuthCode, CQLOG_DEBUG, "谁是卧底", "killtimer");
+	if (timer_id != NULL)
+	{
+		timeKillEvent(timer_id);
+		CQ_addLog(AuthCode, CQLOG_DEBUG, "谁是卧底", "killtimer");
+	}
 	return TRUE;
 }
 void WINAPI onTime1(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dwl, DWORD dw2)
@@ -538,7 +603,29 @@ void WINAPI game::onTime()
 	else
 	{
 		memberdata *p = head;
-		hadsay(p->QQID, "", AuthCode);
+		while (p != NULL)
+		{
+			if (p->say == 0)
+			{
+				hadsay(p->QQID, "", AuthCode);
+				return;
+			}
+			p = p->next;
+		}
+		p = head;
+		while (p != NULL)
+		{
+			CQ_sendPrivateMsg(AuthCode, p->QQID, "出现未知错误，游戏强制结束，房间已被摧毁！");
+			p = p->next;
+		}
+		p = death;
+		while (p != NULL)
+		{
+			CQ_sendPrivateMsg(AuthCode, p->QQID, "出现未知错误，游戏强制结束，房间已被摧毁！");
+			p = p->next;
+		}
+		gameover();
+		return;
 	}
 }
 //重置所有存活成员的发言、投票以及被投票数
@@ -726,7 +813,8 @@ int  game::check(int type, int32_t ac)
 		{
 			if (p->vote == 0)
 			{
-				CQ_sendPrivateMsg(AuthCode, p->QQID, "你超时未投票已被视作弃权！");
+				CQ_sendPrivateMsg(AuthCode, p->QQID, "你超时未投票已被视作弃权，予以扣十分处罚！");
+				connections.changeintegral(p->QQID, -10, 0);
 			}
 			if (p->poll > max)
 			{
@@ -740,7 +828,7 @@ int  game::check(int type, int32_t ac)
 		{
 			p = head;
 			memset(msg, 0, sizeof(msg));
-			sprintf(msg, "%i号被淘汰了！\n你们发现了卧底，游戏结束！\n游戏词是:%s-%s", n + 1, commoner, dinting);
+			sprintf(msg, "%i号被淘汰了！\n你们发现了卧底，游戏结束，该房间将被摧毁！\n游戏词是:%s-%s", n + 1, commoner, dinting);
 			while (p != NULL)
 			{
 				CQ_sendPrivateMsg(ac, p->QQID, msg);
@@ -749,6 +837,10 @@ int  game::check(int type, int32_t ac)
 					if (0 == connections.changeintegral(p->QQID, 35, 0))
 					{
 						CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为平民添加积分失败！");
+					}
+					else
+					{
+						CQ_sendPrivateMsg(ac, p->QQID, "你获得了35积分！");
 					}
 				}
 				p = p->next;
@@ -760,6 +852,10 @@ int  game::check(int type, int32_t ac)
 				if (0 == connections.changeintegral(p->QQID, 25, 0))
 				{
 					CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为平民添加积分失败！");
+				}
+				else
+				{
+					CQ_sendPrivateMsg(ac, p->QQID, "你获得了25积分！");
 				}
 				p = p->next;
 			}
@@ -796,7 +892,7 @@ int  game::check(int type, int32_t ac)
 					n = 1;
 				}
 				memset(msg, 0, sizeof(msg));
-				sprintf(msg, "%i号是卧底，你们没能发现卧底，游戏结束！\n游戏词是:%s-%s", 2 - n, commoner, dinting);
+				sprintf(msg, "%i号是卧底，你们没能发现卧底，游戏结束，该房间将被摧毁！\n游戏词是:%s-%s", 2 - n, commoner, dinting);
 				while (p != NULL)
 				{
 					CQ_sendPrivateMsg(ac, p->QQID, msg);
@@ -811,6 +907,10 @@ int  game::check(int type, int32_t ac)
 				if (0 == connections.changeintegral(dintingQQID, 50, 0))
 				{
 					CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为卧底添加积分失败！");
+				}
+				else
+				{
+					CQ_sendPrivateMsg(ac, p->QQID, "你获得了50积分！");
 				}
 				gameover();
 				return 1;
@@ -862,7 +962,7 @@ int  game::check(int type, int32_t ac)
 		{
 			p = head;
 			memset(msg, 0, sizeof(msg));
-			sprintf(msg, "%i号被淘汰了！\n你们发现了卧底，游戏结束！\n游戏词是:%s-%s", n + 1, commoner, dinting);
+			sprintf(msg, "%i号被淘汰了！\n你们发现了卧底，游戏结束，该房间将被摧毁！\n游戏词是:%s-%s", n + 1, commoner, dinting);
 			while (p != NULL)
 			{
 				CQ_sendPrivateMsg(ac, p->QQID, msg);
@@ -873,6 +973,10 @@ int  game::check(int type, int32_t ac)
 						CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为平民添加积分失败！");
 					}
 				}
+				else
+				{
+					CQ_sendPrivateMsg(ac, p->QQID, "你获得了35积分！");
+				}
 				p = p->next;
 			}
 			p = death;
@@ -882,6 +986,10 @@ int  game::check(int type, int32_t ac)
 				if (0 == connections.changeintegral(p->QQID, 25, 0))
 				{
 					CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为平民添加积分失败！");
+				}
+				else
+				{
+					CQ_sendPrivateMsg(ac, p->QQID, "你获得了25积分！");
 				}
 				p = p->next;
 			}
@@ -918,7 +1026,7 @@ int  game::check(int type, int32_t ac)
 					n = 1;
 				}
 				memset(msg, 0, sizeof(msg));
-				sprintf(msg, "%i号是卧底，你们没能发现卧底，游戏结束！\n游戏词是:%s-%s", 2 - n, commoner, dinting);
+				sprintf(msg, "%i号是卧底，你们没能发现卧底，游戏结束，该房间将被摧毁！\n游戏词是:%s-%s", 2 - n, commoner, dinting);
 				while (p != NULL)
 				{
 					CQ_sendPrivateMsg(ac, p->QQID, msg);
@@ -933,6 +1041,10 @@ int  game::check(int type, int32_t ac)
 				if (0 == connections.changeintegral(dintingQQID, 50, 0))
 				{
 					CQ_addLog(ac, CQLOG_ERROR, "积分模块", "为卧底添加积分失败！");
+				}
+				else
+				{
+					CQ_sendPrivateMsg(ac, p->QQID, "你获得了50积分！");
 				}
 				gameover();
 				return 1;
@@ -1198,6 +1310,7 @@ int game::startgame(int32_t ac)
 	{
 		return -1;
 	}
+	connections.init(ac);
 	runstate = 1;
 	srand(time(NULL));
 	k = 1 + rand() % 41;
@@ -1248,7 +1361,7 @@ int game::startgame(int32_t ac)
 	starttimer();
 	return k;
 }
-//如果还未轮到该玩家发言,发言成功返回序列号，已发言过则返回-1，进入投票阶段则返回-2
+//如果还未轮到该玩家发言返回0,发言成功返回序列号，已发言过则返回-1，进入投票阶段则返回-2
 int game::hadsay(int64_t QQID,char *msg,int32_t ac)
 {
 	int n = 0;
@@ -1264,7 +1377,6 @@ int game::hadsay(int64_t QQID,char *msg,int32_t ac)
 			}
 			else
 			{
-				killtimer();
 				p->say = 1;
 				rank++;
 				if (rank == number)
@@ -1290,7 +1402,7 @@ int game::hadsay(int64_t QQID,char *msg,int32_t ac)
 					{
 						if (!strcmp(msg, ""))
 						{
-							CQ_sendPrivateMsg(ac, p->QQID, "最后一名玩家超时未发言，现在进入投票阶段");
+							CQ_sendPrivateMsg(ac, p->QQID, "最后一名玩家超时未发言，现在进入投票阶段并予以扣十分处罚！");
 						}
 						else
 						{

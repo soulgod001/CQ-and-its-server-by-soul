@@ -12,10 +12,6 @@ def processforsign(dictionary,connection):
         return getintegral(dictionary['user'],connection)
     elif dictionary['action'] == 'integral':
         return changeintegral(dictionary['user'],int(dictionary['number']),connection)
-    elif dictionary['action'] == 'date':
-        return changedate(dictionary['user'],dictionary['groupid'],dictionary['date'],connection)
-    elif dictionary['action'] == 'list':
-        return listsign(dictionary['groupid'],dictionary['date'],connection)
     elif dictionary['action'] == 'sign':
         return sign(dictionary,connection)
 
@@ -129,16 +125,6 @@ def sign(dictionary,connection):
         print(e)
         return '不好意思，傻馒出现了一点小问题，请联系维护人员修复'
 
-def listsign(groupid,date,connection):
-    cursor = connection.cursor()
-    sql = "select * from sign where groupid = '%s' and date = '%s'"%(groupid,date)
-    try:
-        n = cursor.execute(sql)
-        return str(n)
-    except BaseException as e:
-        print(e)
-        return '-1'
-
 def getintegral(QQID,connection):
     cursor = connection.cursor()
     sql="select date,integral from sign where id = '%s'"%QQID
@@ -158,39 +144,31 @@ def getintegral(QQID,connection):
 def changeintegral(QQID,change,connection):
     cursor = connection.cursor()
     sql = "select integral from sign where id = '%s'"%QQID
-    if(0 == cursor.execute(sql)):
-        sql="insert into sign(id,integral) values('%s',%i)"%(QQID,change)
-    else:
-        if change > 0:
-            sql="update sign set integral = integral + %i where id = '%s'"%(change,QQID)
+    try:
+        if(0 == cursor.execute(sql)):
+            sql="insert into sign(id,integral) values('%s',%i)"%(QQID,change)
         else:
-            sql="update sign set integral = integral - %i where id = '%s'"%(-change,QQID)
-    if(0==cursor.execute(sql)):
+            if change > 0:
+                sql="update sign set integral = integral + %i where id = '%s'"%(change,QQID)
+            else:
+                sql="update sign set integral = integral - %i where id = '%s'"%(-change,QQID)
+        if(0==cursor.execute(sql)):
+            return '0'
+        else:
+            sql = "select integral from sign where id = '%s'"%QQID
+            if(0 == cursor.execute(sql)):
+                return '0'
+            else:
+                integral = cursor.fetchone()[0]
+                if integral < 0:
+                    sql = "update sign set integral = 0 where id = '%s'"%QQID
+                    if(0 == cursor.execute(sql)):
+                        return '0'
+                connection.commit()
+                return '1'
+    except BaseException as e:
+        print(e)
         return '0'
-    else:
-        try:
-            connection.commit()
-        except:
-            return '0';
-        else:
-            return '1';
-
-def changedate(QQID,groupid,date,connection):
-    cursor = connection.cursor()
-    sql = "select integral from sign where id = '%s'"%QQID
-    if(0 == cursor.execute(sql)):
-        sql="insert into sign(id,date,groupid) values('%s','%s','%s')"%(QQID,date,groupid)
-    else:
-        sql="update sign set date = '%s',groupid = '%s' where id = '%s'"%(date,groupid,QQID)
-    if(0==cursor.execute(sql)):
-        return '0'
-    else:
-        try:
-            connection.commit()
-        except:
-            return '0';
-        else:
-            return '1';
 
 def getdinting(id,connection):
     cursor = connection.cursor()
@@ -352,6 +330,28 @@ category = '%s' and date regexp '%s.+'"%(dictionary['user'],dictionary['category
             return outcome
     return '0'
 
+def slave_buyneedintegral(slave_id,connection):
+    cursor = connection.cursor()
+    sql = "select masterid,ransom from master where id = '%s'"%slave_id
+    if(0 == cursor.execute(sql)):
+        sql = "select integral from sign where id = '%s'"%slave_id
+        if(0 == cursor.execute(sql)):#无记录，不可购买返回0,0
+            return 0,0
+        else:
+            result = cursor.fetchone()[0]
+            return 1,result + 100#可购买，所需积分
+    else:
+        result = cursor.fetchone()
+        if result[0] == '0':
+            sql = "select integral from sign where id = '%s'"%slave_id
+            if(0 == cursor.execute(sql)):
+                return 0,0
+            else:
+                integral = cursor.fetchone()[0]
+                return 1,integral + 100#可购买，所需积分
+        else:
+            return 2,result[1]+100#可购买，赎金
+
 def processforslave(dictionary,connection):
     cursor = connection.cursor()
     outcome = '0'
@@ -361,23 +361,385 @@ def processforslave(dictionary,connection):
             return '0 0 0'
         result = cursor.fetchone()
         return '%s %i %s'%(result[0],result[1],result[2])
-    elif dictionary['action']=='buy':
-        sql='delete from master where id = "%s"'%dictionary['id']
-        cursor.execute(sql)
-        sql='insert into master(id,masterid,date,ransom) values("%s","%s","%s",%s)\
-'%(dictionary['id'],dictionary['user'],dictionary['date'],dictionary['ransom'])
-        if(0==cursor.execute(sql)):
-            try:
-                connections.commit()
-                return '1'
-            except:
-                return '0'
+    elif dictionary['action'] == 'buy_back':
+        nowtime = time.time()
+        sql = 'select ransom,masterid from master where id = "%s"'%dictionary['user']
+        if(0 == cursor.execute(sql)):
+            return '2'
+        result = cursor.fetchone()
+        ransom = result[0]
+        masterid = result[1]
+        if masterid == '0':
+            return '2'
+        else:
+            sql = 'select integral from sign where id = "%s"'%dictionary['user']
+            if(0 == cursor.execute(sql)):
+                return '-%i'%ransom
+            else:
+                integral = cursor.fetchone()[0]
+                if integral >= ransom:
+                    sql = 'update sign set integral = integral - %i where id = "%s"'%(ransom,dictionary['user'])
+                    if(0 == cursor.execute(sql)):
+                        return '0'
+                    sql = 'update sign set integral = integral + %i where id = "%s"'%(ransom*0.8,masterid)
+                    if(0 == cursor.execute(sql)):
+                        return '0'
+                    sql = 'update master set date = %i,masterid = 0 where id = "%s"'%(nowtime,dictionary['user'])
+                    if(0 == cursor.execute(sql)):
+                        return '0'
+                    connection.commit()
+                    return '1'
+                else:
+                    return '-%i'%ransom
+    elif dictionary['action'] == 'buycheck':
         try:
-            connection.commit()
-            return '1'
-        except:
+            sql = "select * from master where masterid = '%s' and id = '%s'"%(dictionary['user'],dictionary['slaveid'])
+            if 0 != cursor.execute(sql):
+                return '-1 请不要重复购买自己的奴隶！'
+            sql = "select * from master where masterid = '%s' and id = '%s'"%(dictionary['slaveid'],dictionary['user'])
+            if 0 != cursor.execute(sql):
+                return '-1 你不能购买你的主人，请先赎回！'
+            sql = "select * from master where masterid = '%s'"%dictionary['user']
+            if cursor.execute(sql) >= 10:
+                return "-1 你已经拥有十个奴隶，你无法再购买更多了！"
+            n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
+            if n == 0:
+                return "-1 对方处于新手保护期，在对方获得积分之前，你暂时无法购买！"
+            elif n == 1:
+                nowtime = time.time()
+                sql = "select date from master where id = '%s'"%dictionary['slaveid']
+                if 0 == cursor.execute(sql):
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i积分，你的积分不足，无法购买！"%buyneed_integral
+                    else:
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i积分，确认购买请输1，取消请输0！"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i积分，你的积分不足，无法购买！"%buyneed_integral
+                date = cursor.fetchone()[0]
+                if date + 3*24*60*60 > nowtime:
+                    sql = "select number from prop where id = '%s' and kind = 2"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i积分和一张强制购买卡，你没有强制保护卡无法购买！"%buyneed_integral
+                    else:
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        if(0 == cursor.execute(sql)):
+                            return "-1 购买对方需要%i积分，你的积分不足，无法购买！"%buyneed_integral
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i积分和一张强制购买卡，确认购买请输1，取消购买请输0！"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i积分，你的积分不足，无法购买！"%buyneed_integral
+                else:
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i积分，你的积分不足，无法购买！"%buyneed_integral
+                    else:
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i积分，确认购买请输1，取消请输0"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i积分，你的积分不足，无法购买"%buyneed_integral
+            elif n == 2:
+                nowtime = time.time()
+                sql = "select date from master where id = '%s'"%dictionary['slaveid']
+                if 0 == cursor.execute(sql):
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+                    else:
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i赎金，确认购买请输1，取消请输0"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+                date = cursor.fetchone()[0]
+                if date + 3*24*60*60 > nowtime:
+                    sql = "select number from prop where id = '%s' and kind = 2"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i赎金和一张强制购买卡，你没有强制保护卡无法购买"%buyneed_integral
+                    else:
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        if(0 == cursor.execute(sql)):
+                            return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i赎金和一张强制购买卡，确认购买请输1，取消购买请输0！"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+                else:
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    if(0 == cursor.execute(sql)):
+                        return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+                    else:
+                        user_integral = cursor.fetchone()[0]
+                        if user_integral >= buyneed_integral:
+                            return "1 购买对方需要%i赎金，确认购买请输1，取消请输0"%buyneed_integral
+                        else:
+                            return "-1 购买对方需要%i赎金，你的积分不足，无法购买"%buyneed_integral
+        except BaseException as e:
+            print(e)
+            return "-1 对不起，服务器出现未知错误，请截图联系维护人员反馈"
+    elif dictionary['action'] == 'putname':
+        sql = "select number from prop where id = '%s' and kind = 5"%dictionary['user']
+        try:
+            if(0 == cursor.execute(sql)):
+                return '-1'
+            else:
+                number = cursor.fetchone()[0]
+                if number <= 0:
+                    return '0'
+            sql = "select * from sign where id = '%s'"%dictionary['slaveid']
+            if 0 == cursor.execute(sql):
+                return '0'
+            else:
+                if dictionary['user'] == dictionary['slaveid']:
+                    sql = "update sign set name = '%s' where id = '%s'"%(dictionary['name'],dictionary['slaveid'])
+                else:
+                    sql = "select masterid from master where id = '%s'"%dictionary['slaveid']
+                    if 0 == cursor.execute(sql):
+                        return '-1'
+                    masterid = cursor.fetchone()[0]
+                    if masterid == dictionary['user']:
+                        sql = "update sign set name = '%s' where id = '%s'"%(dictionary['name'],dictionary['slaveid'])
+                    else:
+                        return '-1'
+                    if 0 == cursor.execute(sql):
+                        return '0'
+                    else:
+                        if number == 1:
+                            sql = "delete from prop where id = '%s' and kind = 5"%dictionary['user']
+                        elif number >1:
+                            sql = "update prop set number = number -1 where id = '%s' and kind = 5"%dictionary['user']
+                        connection.commit()
+                        return '1'
+                if 0 == cursor.execute(sql):
+                    return '0'
+                else:
+                    connection.commit()
+                    return '1'
+        except BaseException as e:
+            print(e)
             return '0'
-        return '1'
+    elif dictionary['action'] == 'getidbyname':
+        sql = 'select id from sign where name = "%s"'%dictionary['name']
+        try:
+            if 0 == cursor.execute(sql):
+                return '-1'
+            id = cursor.fetchone()[0]
+            return id
+        except BaseException as e:
+            print(e)
+            return '0'
+    elif dictionary['action'] == 'getat':
+        sql = 'select name from sign where id = "%s"'%dictionary['user']
+        try:
+            if 0 == cursor.execute(sql):
+                return '[CQ:at,qq=%s]'%dictionary['user']
+            name = cursor.fetchone()[0]
+            if name == '无':
+                return '[CQ:at,qq=%s]'%dictionary['user']
+            else:
+                return name
+        except BaseException as e:
+            print(e)
+            return '[CQ:at,qq=%s]'%dictionary['user']
+    elif dictionary['action'] == 'buy':
+        cursor = connection.cursor()
+        sql = "select date,masterid from master where id = '%s'"%dictionary['slaveid']
+        nowtime = time.time()
+        try:
+            if(0 == cursor.execute(sql)):
+                sql = "select number from prop where id = '%s' and kind = 3"%dictionary['slaveid']
+                if(0 == cursor.execute(sql)):
+                    n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    cursor.execute(sql)
+                    integral = cursor.fetchone()[0]
+                    if integral < buyneed_integral :
+                        return '0'
+                    sql = "update sign set integral = integral - %i where id = '%s'"%(buyneed_integral,dictionary['user'])
+                    if(0 == cursor.execute(sql)):
+                        return '0'
+                    else:
+                        sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.5,dictionary['slaveid'])
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            sql = "insert into master(id,masterid,date,ransom) values('%s','%s',%i,%i)"%(dictionary['slaveid'],dictionary['user'],nowtime,buyneed_integral)
+                            if(0 == cursor.execute(sql)):
+                                return '0'
+                            else:
+                                connection.commit()
+                                return '1'
+                else:
+                    number = cursor.fetchone()[0]
+                    if number == 1:
+                        sql = "delete from prop where id = '%s' and kind = 3"%dictionary['slaveid']
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            sql = "insert into master(id,date,masterid,ransom) values('%s',%i,0,0)"%(dictionary['slaveid'],nowtime)
+                            if(0 == cursor.execute(sql)):
+                                return '0'
+                            else:
+                                connection.commit()
+                                return '-1'
+                    else:
+                        sql = "update prop set number = number -1 where id = '%s' and kind = 3"%dictionary['slaveid']
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            sql = "insert into master(id,date,masterid,ransom) values('%s',%i,0,0)"%(dictionary['slaveid'],nowtime)
+                            if(0 == cursor.execute(sql)):
+                                return '0'
+                            else:
+                                connection.commit()
+                                return '-1'
+            else:
+                result = cursor.fetchone()
+                date = result[0]
+                masterid = result[1]
+                if (date+3*24*60*60<=nowtime):
+                    sql = "select number from prop where id = '%s' and kind = 3"%dictionary['slaveid']
+                    if(0 == cursor.execute(sql)):
+                        n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        integral = cursor.fetchone()[0]
+                        if integral < buyneed_integral :
+                            return '0'
+                        sql = "update sign set integral = integral - %i where id = '%s'"%(buyneed_integral,dictionary['user'])
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            if masterid == '0':
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.5,dictionary['slaveid'])
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+                            else:
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.8,masterid)
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+                    else:
+                        number = cursor.fetchone()[0]
+                        if number == 1:
+                            sql = "delete from prop where id = '%s' and kind = 3"%dictionary['slaveid']
+                            if(0 == cursor.execute(sql)):
+                                return '0'
+                            else:
+                                sql = "update master set date = %i where id = '%s'"%(nowtime,dictionary['slaveid'])
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    connection.commit()
+                                    return '-1'
+                        else:
+                            sql = "update prop set number = number -1 where id = '%s' and kind = 3"%dictionary['slaveid']
+                            if(0 == cursor.execute(sql)):
+                                return '0'
+                            else:
+                                sql = "update master set date = %i where id = '%s'"%(nowtime,dictionary['slaveid'])
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    connection.commit()
+                                    return '-1'
+                else:
+                    sql = "select number from prop where id = '%s' and kind = 2"%dictionary['user']
+                    cursor.execute(sql)
+                    number = cursor.fetchone()[0]
+                    if number == 1:
+                        sql = "delete from prop where id = '%s' and kind = 2"%dictionary['user']
+                        if 0 == cursor.execute(sql):
+                            return '0'
+                        n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        integral = cursor.fetchone()[0]
+                        if integral < buyneed_integral :
+                            return '0'
+                        sql = "update sign set integral = integral - %i where id = '%s'"%(buyneed_integral,dictionary['user'])
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            if masterid == '0':
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.5,dictionary['slaveid'])
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+                            else:
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.8,masterid)
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+                    else:
+                        sql = "update prop set number = number -1 where id = '%s' and kind = 2"%dictionary['user']
+                        if(0 == cursor.execute()):
+                            return '0'
+                        n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        integral = cursor.fetchone()[0]
+                        if integral > buyneed_integral :
+                            return '0'
+                        sql = "update sign set integral = integral - %i where id = '%s'"%(buyneed_integral,dictionary['user'])
+                        if(0 == cursor.execute(sql)):
+                            return '0'
+                        else:
+                            if masterid == '0':
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.5,dictionary['slaveid'])
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+                            else:
+                                sql = "update sign set integral = integral + %i where id = '%s'"%(buyneed_integral*0.8,masterid)
+                                if(0 == cursor.execute(sql)):
+                                    return '0'
+                                else:
+                                    sql = "update master set masterid = '%s',date = %i,ransom = %i where id = '%s'"%(dictionary['user'],nowtime,buyneed_integral+100,dictionary['slaveid'])
+                                    if(0 == cursor.execute(sql)):
+                                        return '0'
+                                    else:
+                                        connection.commit()
+                                        return '1'
+        except BaseException as e:
+            print(e)
+            return '0'
     elif dictionary['action']=='list':
         sql="select id from master where masterid = '%s'"%dictionary['user']
         i=cursor.execute(sql)
@@ -390,15 +752,16 @@ def processforslave(dictionary,connection):
             outcome+=' '
         return outcome
     elif dictionary['action']=='delete':
-        sql="delete from master where id = '%s'"%dictionary['user']
-        if(0==cursor.execute(sql)):
-            return '0'
+        sql="update master set masterid = '0' and ransom = 0 where id = '%s'"%dictionary['user']
         try:
-            connection.commit()
-            return '1'
-        except:
+            if 0 == cursor.execute(sql):
+                return '0'
+            else:
+                connection.commit()
+                return '1'
+        except BaseException as e:
+            print(e)
             return '0'
-        return '1'
     return '0'
 
 def processforvalidate(dictionary,connection):
@@ -532,64 +895,49 @@ def processforprop(dictionary,connection):
             else:
                 result = cursor.fetchone()
                 name = result[0]
+            sql="select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
+            if(0==cursor.execute(sql)):            
+                sql="insert into prop(id,kind,number,name) values('%s',%s,1,'%s')"%(dictionary['user'],dictionary['rank'],name)
+                if (0 == cursor.execute(sql)):
+                    return '0'
+                else:
+                    connection.commit()
+                    return '1'
+            else:
+                sql="update prop set number =(select number where id = '%s' and kind = %s)+1 where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'],dictionary['user'],dictionary['rank'])
+                if(0==cursor.execute(sql)):
+                    return '0'
+                else:
+                    connection.commit()
+                    return '1'
         except BaseException as e:
             print(e)
             return '数据库因未知原因出错，请联系维护人员进行处理。'
-        sql="select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
-        if(0==cursor.execute(sql)):            
-            sql="insert into prop(id,kind,number,name) values('%s',%s,1,'%s')"%(dictionary['user'],dictionary['rank'],name)
-            if (0 == cursor.execute(sql)):
-                return '0'
-            else:
-                try:
-                    connection.commit()
-                    return '1'
-                except:
-                    return '0'
-        else:
-            sql="update prop set number =(select number where id = '%s' and kind = %s)+1 where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'],dictionary['user'],dictionary['rank'])
-            if(0==cursor.execute(sql)):
-                return '0'
-            else:
-                try:
-                    connection.commit()
-                    return '1'
-                except:
-                    return '0'
     elif dictionary['action']=='reduce':
         sql = 'select name from prop where id = "0" and kind = "%s"'%dictionary['rank']
         try:
             if(0 == cursor.execute(sql)):
                 return '数据库因未知原因出错，请联系维护人员进行处理。'
             else:
-                result = cursor.fetchone()
-                name = result[0]
-        except BaseException as e:
-            print(e)
-            return '数据库因未知原因出错，请联系维护人员进行处理。'
-        sql = "select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
-        if(0==cursor.execute(sql)):            
-            return '-1'
-        else:
-            try:
-                connection.commit()
-            except:
-                return '0'
-            result=cursor.fetchone()
-            if int(result[0]) <= 0:
-                return '-1'
-            elif int(result[0]) == 1:
-                sql = 'delete from prop where id = "%s" and kind = %s'%(dictionary['user'],dictionary['rank'])
-            else:
-                sql="update prop set number =(select number where id = '%s' and kind = %s)-1 where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'],dictionary['user'],dictionary['rank'])
-            if (0 == cursor.execute(sql)):
-                return '0'
-            else:
-                try:
+                name = cursor.fetchone()[0]
+                sql = "select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
+                if(0==cursor.execute(sql)):
+                    return '-1'
+                result=cursor.fetchone()
+                if int(result[0]) <= 0:
+                    return '-1'
+                elif int(result[0]) == 1:
+                    sql = 'delete from prop where id = "%s" and kind = %s'%(dictionary['user'],dictionary['rank'])
+                else:
+                    sql="update prop set number =(select number where id = '%s' and kind = %s)-1 where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'],dictionary['user'],dictionary['rank'])
+                if (0 == cursor.execute(sql)):
+                    return '0'
+                else:
                     connection.commit()
                     return '1'
-                except:
-                    return '0'
+        except BaseException as e:
+            print(e)
+            return '0'
     elif dictionary['action']=='find':
         sql="select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
         if(0==cursor.execute(sql)):
@@ -612,13 +960,13 @@ def processforprop(dictionary,connection):
             if(0 == cursor.execute(sql)):
                 return '数据库因未知原因出错，请联系维护人员进行处理。'
             else:
-                outcome = '┌────────┐\n'
+                outcome = ''
                 for i in range(0,cursor.rowcount):
                     result = cursor.fetchone()
                     if result[1] <= 0:
                         continue
-                    outcome+= '│%-5s  售价%-5i│\n'%(result[0],result[1])
-                outcome+= '└────────┘\n如果有想要的道具可以兑换哦'
+                    outcome+= '%-5s  售价%-5i\n'%(result[0],result[1])
+                outcome+= '如果有想要的道具可以兑换哦'
                 return outcome
         except BaseException as e:
             print(e)
@@ -647,7 +995,7 @@ def processforprop(dictionary,connection):
                 else:#获取到卡kind与number
                     [kind,number] = cursor.fetchone()
                     if number <= 0 :
-                        return '商店中没有这张卡呢！'
+                        return '虽然傻馒知道你很想要，但是这张卡不能从商店兑换哦！'
                     elif number > integral:
                         return '虽然傻馒很想赚你的小钱钱，但是你的积分好像不够呢！'
                     else:

@@ -28,7 +28,7 @@ using namespace std;
 #define thanksforweather "感谢订阅武理知音天气预报，每晚九点wuli傻馒准时为您播报明日武汉天气哦！"
 #define sorryforweather "您已取订武理知音天气预报，是傻馒哪里做的不好吗?可以向qq:3047964704反馈或者在我的说说下面评论哦！"
 #define Error "傻馒出了点小问题，请联系维护人员解决！"
-#define wulizhiyin "大家好，这里是武理知音广播电台，我是主持人wuli傻馒，该电台由武理ai社(486712165)承办。\n目前功能有:\n天气预报\n邀请入群\n维护反馈\n武理知音\n发送功能关键词了解更多哦(欢迎将我邀请进更多qq群)！"
+#define wulizhiyin "大家好，这里是武理知音广播电台，我是主持人wuli傻馒，该电台由武理ai社(486712165)承办。\n目前功能有:\n天气预报\n邀请入群\n维护反馈\n菜单\n武理知音\n发送功能关键词了解更多哦(欢迎将我邀请进更多qq群)！"
 int ac = -1; //AuthCode 调用酷Q的方法时需要用到
 bool enabled = false;
 //static makeroom room[5];
@@ -37,7 +37,6 @@ MMRESULT game_timer_id[5];
 HHOOK keyboardHook = 0;
 HHOOK g_hMouse = 0;
 static game gameroom[5];//游戏房间
-connection connections;//与服务器连接的实例对象
 //轮询时钟
 void WINAPI onTimeFunc(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dwl, DWORD dw2)
 {
@@ -49,6 +48,8 @@ void WINAPI onTimeFunc(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dwl, DWORD d
 	char str;
 	int i, t, k, number;
 	int64_t groupid[100];
+	connection connections;//与服务器连接的实例对象
+	connections.init(ac);
 	if ((number = atoi(connections.ask("t"))) == 1)//如果处于九点到九点零一分之间
 	{
 		char *a = NULL;
@@ -71,18 +72,6 @@ void WINAPI onTimeFunc(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dwl, DWORD d
 			CQ_sendPrivateMsg(ac, groupid[i], a);
 			i++;
 		}
-		if ((fp = fopen("c:/clear.txt", "r")) == NULL)
-		{
-			CQ_addLog(ac, CQLOG_ERROR, "clear", "can't read");
-		}
-		else
-		{
-			str = fgetc(fp);
-			fclose(fp);
-			sprintf(sendmsg, "[CQ:at,qq=all]今天轮到%c号做清洁！完成后请在本群发送完成两字！", str);
-			CQ_sendGroupMsg(ac, 657557375, sendmsg);
-		}
-		return;
 	}
 	else if (number == -1)
 	{
@@ -184,6 +173,7 @@ CQEVENT(int32_t, __eventExit, 0)() {
 * 如非必要，不建议在这里加载窗口。（可以添加菜单，让用户手动打开窗口）
 */
 CQEVENT(int32_t, __eventEnable, 0)() {
+	connection connections;//与服务器连接的实例对象
 	connections.init(ac);
 	connections.ask("t");
 	timeSetEvent(60000, 1, (LPTIMECALLBACK)onTimeFunc, DWORD(1), TIME_PERIODIC);//启动时钟函数，间隔为1分钟
@@ -218,6 +208,7 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 	QDdata masterdata;
 	int64_t *IDlist = NULL;
 	int64_t groupid;
+	connection connections;//与服务器连接的实例对象
 	if (strstr(msg, "rich") != NULL)
 	{
 		return EVENT_BLOCK;
@@ -335,6 +326,11 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 		CQ_sendPrivateMsg(ac, fromQQ, "如果碰到了什么问题或是有什么建议，可以通过以下几个方法进行反馈\n1.维护人员qq:3047964704\n2.发送邮件至3047964704的qq邮箱\n3.在我的说说下面做出评论");
 		return EVENT_BLOCK;
 	}
+	else if (!strcmp(msg, "菜单") || !strcmp(msg, "功能"))
+	{
+		CQ_sendGroupMsg(ac, fromQQ, "目前的功能有:\n谁是卧底\n好友买卖系统\n签到抽奖系统\n道具系统\n充值\n武理知音\n输入这些词询问我相关内容");
+		return EVENT_BLOCK;
+	}
 	else if (strstr(msg, "邀请入群"))
 	{
 		strcpy(tips, msg + 8);
@@ -415,7 +411,8 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	CQ_Type_GroupMember fromQQinfo;
 	CQ_Type_GroupMember targetQQinfo;
 	CQ_Type_GroupMember masterQQinfo;
-	
+	connection connections;//与服务器连接的实例对象
+
 	connections.init(ac);
 	for (k = 0; k < 10; k++)
 	{
@@ -464,29 +461,18 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				targetQQID = list.targetQQID[k];//取出列中的目标
 				if (!strcmp(msg, "1"))//指令为1
 				{
-					if (connections.getmaster(&master, targetQQID) == 0)
+					if (connections.deleteslave(targetQQID) == 0)
 					{
+						CQ_sendGroupMsg(ac, fromGroup, Error);
 						list.QQID[k] = 0;
 						list.targetQQID[k] = 0;
 						list.number[k] = 0;
-						list.integral[k] = 0;
-						CQ_sendGroupMsg(ac, fromGroup, Error);
-						return EVENT_BLOCK;
-					}
-					if (connections.buyslave(targetQQID, 0, 0, master.Time) == 0)
-					{
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						list.number[k] = 0;
-						list.integral[k] = 0;
-						CQ_sendGroupMsg(ac, fromGroup, Error);
 						return EVENT_BLOCK;
 					}
 					CQ_sendGroupMsg(ac, fromGroup, "流放成功！");
 					list.QQID[k] = 0;
 					list.targetQQID[k] = 0;
 					list.number[k] = 0;
-					list.integral[k] = 0;
 					return EVENT_BLOCK;
 				}
 				else if (!strcmp(msg, "0"))
@@ -494,104 +480,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					list.QQID[k] = 0;
 					list.targetQQID[k] = 0;
 					list.number[k] = 0;
-					list.integral[k] = 0;
 					CQ_sendGroupMsg(ac, fromGroup, "你取消了流放");
-					return EVENT_BLOCK;
-				}
-				else
-				{
-					CQ_sendGroupMsg(ac, fromGroup, "输入1确认，输入0取消！");
-					return EVENT_BLOCK;
-				}
-			}
-			else if (list.number[k] == 1)//强制购买
-			{
-				if (!strcmp(msg, "1"))//指令为1
-				{
-					targetQQID = list.targetQQID[k];//取出列中的目标
-					connections.getintegral(targetQQID, &targetdata);
-					if (connections.getmaster(&master, targetQQID) == 0)//读取对方的master
-					{
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						list.number[k] = 0;
-						CQ_sendGroupMsg(ac, fromGroup, Error);
-						return EVENT_BLOCK;
-					}
-					if (master.QQID != 0)//如果对方有master
-					{				
-						if (connections.changeprop(fromQQ, 2, 0) != 1)
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							list.number[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						connections.getintegral(master.QQID, &data);
-						connections.changeintegral(master.QQID, master.ransom*0.8, 1);
-						connections.getintegral(fromQQ, &data);
-						connections.changeintegral(fromQQ, -master.ransom, 1);
-						master.QQID = fromQQ;
-						master.ransom = master.ransom + 100;
-						time(&master.Time);
-						if (connections.buyslave(targetQQID, fromQQ, master.ransom, master.Time) == 0)//覆盖目标的master
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							list.number[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						memset(sendmsg, 0, sizeof(sendmsg));
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]成功!", targetQQID);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						list.number[k] = 0;
-						return EVENT_BLOCK;
-					}
-					else//对方没有master
-					{
-						if (connections.changeprop(fromQQ, 2, 0) != 1)
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							list.number[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						price = targetdata.integral + 100;//购买需要的价格
-						connections.getintegral(fromQQ, &data);
-						connections.changeintegral(fromQQ, -price, 1);
-						connections.changeintegral(targetQQID, 0.5*price, 1);
-						master.QQID = fromQQ;
-						master.ransom = price + 100;
-						time(&master.Time);
-						if (connections.buyslave(targetQQID, fromQQ, master.ransom, master.Time) == 0)//覆盖对方的master
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							list.number[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						memset(sendmsg, 0, sizeof(sendmsg));
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]成功!", list.targetQQID[k] = 0);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						list.number[k] = 0;
-						return EVENT_BLOCK;
-					}
-				}
-				else if (!strcmp(msg, "0"))
-				{
-					list.QQID[k] = 0;
-					list.targetQQID[k] = 0;
-					list.number[k] = 0;
-					list.integral[k] = 0;
-					CQ_sendGroupMsg(ac, fromGroup, "你取消了购买");
 					return EVENT_BLOCK;
 				}
 				else
@@ -605,64 +494,27 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				if (!strcmp(msg, "1"))//指令为1
 				{
 					targetQQID = list.targetQQID[k];//取出列中的目标
-					connections.getintegral(targetQQID, &targetdata);
-					if (connections.getmaster(&master, targetQQID) == 0)//读取对方的master
+					t = connections.buyslave(fromQQ, targetQQID);
+					if (t == 0)
 					{
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
 						CQ_sendGroupMsg(ac, fromGroup, Error);
-						return EVENT_BLOCK;
 					}
-					if (master.QQID != 0)//如果对方有master
+					else if (t == 1)
 					{
-						connections.changeintegral(master.QQID, master.ransom*0.8, 1);
-						connections.changeintegral(fromQQ, -master.ransom, 1);
-						master.QQID = fromQQ;
-						master.ransom = master.ransom + 100;
-						time(&master.Time);
-						if (connections.buyslave(targetQQID, fromQQ, master.ransom, master.Time) == 0)//覆盖目标的master
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						memset(sendmsg, 0, sizeof(sendmsg));
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]成功!", targetQQID);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						return EVENT_BLOCK;
+						CQ_sendGroupMsg(ac, fromGroup, "购买成功！");
 					}
-					else//对方没有master
+					else
 					{
-						price = targetdata.integral + 100;//购买需要的价格
-						connections.changeintegral(fromQQ, -price, 1);
-						connections.changeintegral(targetQQID, 0.5*price, 1);
-						master.QQID = fromQQ;
-						master.ransom = price + 100;
-						time(&master.Time);
-						if (connections.buyslave(targetQQID, fromQQ, master.ransom, master.Time) == 0)//覆盖对方的master
-						{
-							list.QQID[k] = 0;
-							list.targetQQID[k] = 0;
-							CQ_sendGroupMsg(ac, fromGroup, Error);
-							return EVENT_BLOCK;
-						}
-						memset(sendmsg, 0, sizeof(sendmsg));
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]成功!", list.targetQQID[k] = 0);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						list.QQID[k] = 0;
-						list.targetQQID[k] = 0;
-						return EVENT_BLOCK;
+						CQ_sendGroupMsg(ac, fromGroup, "对方自动使用了保护卡，重新尝试购买吧！");
 					}
+					list.QQID[k] = 0;
+					list.targetQQID[k] = 0;
+					return EVENT_BLOCK;
 				}
 				else if (!strcmp(msg, "0"))
 				{
 					list.QQID[k] = 0;
 					list.targetQQID[k] = 0;
-					list.number[k] = 0;
-					list.integral[k] = 0;
 					CQ_sendGroupMsg(ac, fromGroup, "你取消了购买");
 					return EVENT_BLOCK;
 				}
@@ -672,6 +524,84 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					return EVENT_BLOCK;
 				}
 			}
+			else if (list.number[k] == 1)
+			{
+				int n = atoi(msg);
+				if (n == 1)
+				{
+					list.number[k] = 4;
+					list.targetQQID[k] = fromQQ;
+					CQ_sendGroupMsg(ac, fromGroup, "请输入您的名字，请勿含有不适当的词汇及超过十个字！");
+				}
+				else if (n == 2)
+				{
+					list.number[k] = 5;
+					CQ_sendGroupMsg(ac, fromGroup, "请输入奴隶的qq或艾特对方！");
+				}
+				else
+				{
+					list.QQID[k] = 0;
+					list.number[k] = 0;
+					CQ_sendGroupMsg(ac, fromGroup, "你取消了该指令！");
+				}
+				return EVENT_BLOCK;
+			}
+			else if (list.number[k] == 4)
+			{
+				if (strlen(msg) > 20)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "昵称过长！");
+				}
+				else
+				{
+					char *recData = NULL;
+					int n = connections.slave_putname(fromQQ, list.targetQQID[k], (char*)msg);
+					list.QQID[k] = 0;
+					list.targetQQID[k] = 0;
+					list.number[k] = 0;
+					if (n == -1)
+					{
+						CQ_sendGroupMsg(ac, fromGroup, Error);
+					}
+					else if (n == -2)
+					{
+						CQ_sendGroupMsg(ac, fromGroup, "你不是对方的主人，你无法为对方取名！");
+					}
+					else if (n == 1)
+					{
+						CQ_sendGroupMsg(ac, fromGroup, "取名成功！");
+					}
+					else
+					{
+						CQ_sendGroupMsg(ac, fromGroup, Error);
+					}
+				}
+				return EVENT_BLOCK;
+			}
+			else if (list.number[k] == 5)
+			{
+				if (strstr(msg, "qq=") != NULL)
+				{
+					targetQQID = atoll(strstr(msg, "=") + 1);
+				}
+				else
+				{
+					targetQQID = atoll(msg);
+				}
+				if (targetQQID == 0)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "你输入的信息有误，该指令已取消！");
+					list.number[k] = 0;
+					list.QQID[k] = 0;
+				}
+				else
+				{
+					list.targetQQID[k] = targetQQID;
+					list.number[k] = 4;
+					CQ_sendGroupMsg(ac, fromGroup, "请输入奴隶的名字，请勿含有不适当的词汇及超过十个字！");
+				}
+				return EVENT_BLOCK;
+			}
 		}
 	}
 	if (strlen(msg) > 100)
@@ -680,61 +610,6 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	if ((!strcmp(msg, "签到")) || (strstr(msg, "sign") != NULL))
 	{
-		//_i64toa(fromQQ, strQQID, 10);
-		/*if (connections.getintegral(fromQQ, &data) == 0)
-		{
-			CQ_sendGroupMsg(ac, fromGroup, Error);
-			return EVENT_BLOCK;
-		}
-		time(&Time);
-		localtime_s(&sysTime1, &Time);
-		sprintf_s(date, "%i-%i-%i", sysTime1.tm_year + 1900, sysTime1.tm_mon + 1, sysTime1.tm_mday);
-		if (!strcmp(date,data.date))
-		{
-			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg,"[CQ:at,qq=%s]\n你今天已经签到或抽奖过了，请不要重复签到!",strQQID );
-			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-			return EVENT_BLOCK;
-		}
-		else
-		{
-			n = connections.listsign(fromQQ, fromGroup, date);
-			if (n == 0)
-			{
-				number = connections.changeintegral(fromQQ, 80, 1);
-				connections.getintegral(fromQQ, &data);
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%s]\n签到成功\n你是本群第%i个签到的人，你的积分+%i，你现在的积分为：%i", strQQID, n + 1, number, data.integral);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				connections.changedate(fromQQ, fromGroup, date);
-				return EVENT_BLOCK;
-			}
-			else if (n == 1)
-			{
-				number = connections.changeintegral(fromQQ, 70, 1);
-				connections.getintegral(fromQQ, &data);
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%s]\n签到成功\n你是本群第%i个签到的人，你的积分+%i，你现在的积分为：%i", strQQID, n + 1, number, data.integral);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				connections.changedate(fromQQ, fromGroup, date);
-				return EVENT_BLOCK;
-			}
-			else if (n == 2)
-			{
-				number = connections.changeintegral(fromQQ, 60, 1);
-				connections.getintegral(fromQQ, &data);
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%s]\n签到成功\n你是本群第%i个签到的人，你的积分+%i，你现在的积分为：%i", strQQID, n + 1, number, data.integral);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				connections.changedate(fromQQ, fromGroup, date);
-				return EVENT_BLOCK;
-			}
-			number = connections.changeintegral(fromQQ, 50, 1);
-			connections.getintegral(fromQQ, &data);
-			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%s]\n签到成功\n你是本群第%i个签到的人，你的积分+%i，你现在的积分为：%i", strQQID, n + 1, number, data.integral);
-			CQ_sendGroupMsg(ac,fromGroup,sendmsg);
-			connections.changedate(fromQQ, fromGroup, date);*/
 		CQ_sendGroupMsg(ac, fromGroup, connections.sign(fromQQ, fromGroup));
 		return EVENT_BLOCK;
 	}
@@ -809,13 +684,6 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, "如果碰到了什么问题或是有什么建议，可以通过以下几个方法进行反馈\n1.维护人员qq:3047964704\n2.发送邮件至3047964704的qq邮箱\n3.在我的说说下面做出评论");
 		return EVENT_BLOCK;
 	}
-	else if (!strcmp(msg, "解绑"))
-	{
-		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf_s(sendmsg, "user:%lld\ntype:school_card\naction:delete\nsendby:soul", fromQQ);
-		CQ_sendGroupMsg(ac, fromGroup, connections.ask(sendmsg));
-		return EVENT_BLOCK;
-	}
 	else if (!strcmp(msg, "天气预报"))
 	{
 		CQ_sendGroupMsg(ac, fromGroup, "在qq群或私聊中发送开启天气预报即可订阅武理知音天气预报，发送关闭天气预报即可取消订阅，发送查看天气预报可立即查询明日天气！\n武理知音欢迎您！");
@@ -830,22 +698,31 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (strstr(msg, "购买") != NULL)
 	{
-		for (k = 0; k < strlen(msg); k++)
-		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
-		}
-		if (k == strlen(msg) && !strcmp(msg, "购买"))
+		int64_t n;
+		if (!strcmp(msg, "购买"))
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "请输入你要购买的好友qq,例如：购买xxxxxxxxxxx");//假装这是第一步
 			return EVENT_BLOCK;
 		}
-		else if (k == strlen(msg))
+		if (strlen(strstr(msg, "买") + 2) <= 20)
 		{
-			return EVENT_BLOCK;
+			n = connections.getIDbyname_slave(fromQQ, (char*)strstr(msg, "买") + 2);
 		}
 		else
 		{
+			n == -1;
+		}
+		if (n == -1)
+		{
+			for (k = 0; k < strlen(msg); k++)
+			{
+				if (msg[k] > 47 & msg[k] < 58)
+					break;
+			}
+			if (k == strlen(msg))
+			{
+				return EVENT_BLOCK;
+			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
 			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
 			{
@@ -856,196 +733,71 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				targetstrQQID[i] = msg[k];
 			}
 			targetQQID = atoll(targetstrQQID);
-			if (targetQQID == fromQQ)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, "你不能购买你自己!");
-				return EVENT_BLOCK;
-			}
-			//fromQQclass.GetGroupMemberInfo(ac, fromGroup, targetQQID, targetQQinfo);//取目标QQ信息(该构件出现代码问题，停用) mark
-			if (connections.getmaster(&master, fromQQ) == 0)//读取自己的master
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				return EVENT_BLOCK;
-			}
-			else
-			{
-				if (master.QQID == targetQQID)
-				{
-					CQ_sendGroupMsg(ac, fromGroup, "你无法购买你的主人!你需要先赎回自己！");
-					return EVENT_BLOCK;
-				}
-			}
-			connections.getintegral(fromQQ, &data);
-			connections.getintegral(targetQQID, &targetdata);
-			if (connections.getmaster(&master, targetQQID) == 0)//读取目标的master
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				return EVENT_BLOCK;
-			}
-			if (master.QQID == fromQQ)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, "请不要重复购买自己的奴隶！");
-				return EVENT_BLOCK;
-			}
-			time(&Time);
-			localtime_s(&sysTime1, &Time);
-			localtime_s(&sysTime2, &master.Time);
-			//sprintf_s(date, "%i-%i-%i", sysTime1.tm_year + 1900, sysTime1.tm_mon + 1, sysTime1.tm_mday);
-			if (sysTime1.tm_mday == sysTime2.tm_mday)
-			{
-				if (connections.changeprop(fromQQ, 2, 2) == 1)
-				{
-					CQ_sendGroupMsg(ac, fromGroup, "对方处于保护期，如果购买你将使用一张强制购买卡！");
-				}
-				else
-				{
-					CQ_sendGroupMsg(ac, fromGroup, "对方还处于保护期，你无法购买！");
-					return EVENT_BLOCK;
-				}
-			}
-			else
-			{
-				if (master.QQID >= 10000000)
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%lld", master.QQID);
-					CQ_addLog(ac, CQLOG_DEBUG, "购买", sendmsg);
-					memset(sendmsg, 0, sizeof(sendmsg));
-					if (data.integral < master.ransom)
-					{
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i作为赎金！但是你没有那么多的积分！", targetQQID, master.ransom);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						return EVENT_BLOCK;
-					}
-					sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i作为赎金！", targetQQID, master.ransom);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-					CQ_sendGroupMsg(ac, fromGroup, "确认购买请输入1，取消购买请输入0");
-					for (k = 0; k < 10; k++)
-					{
-						if (list.QQID[k] == 0)
-							break;
-					}
-					list.QQID[k] = fromQQ;
-					list.targetQQID[k] = targetQQID;
-					return EVENT_BLOCK;
-				}
-				else
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					price = int(targetdata.integral + 100);
-					if (data.integral < price)
-					{
-						sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i积分！但是你没有那么多的积分！", targetQQID, price);
-						CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-						return EVENT_BLOCK;
-					}
-					sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i积分!", targetQQID, price);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-					CQ_sendGroupMsg(ac, fromGroup, "确认购买请输入1，取消购买请输入0");
-					for (k = 0; k < 10; k++)
-					{
-						if (list.QQID[k] == 0)
-							break;
-					}
-					list.QQID[k] = fromQQ;
-					list.targetQQID[k] = targetQQID;
-					return EVENT_BLOCK;
-				}
-			}
-			if (master.QQID != 0)
-			{
-				if (master.ransom == 0)
-				{
-					CQ_sendGroupMsg(ac, fromGroup, Error);
-					return EVENT_BLOCK;
-				}
-				memset(sendmsg, 0, sizeof(sendmsg));
-				if (data.integral < master.ransom)
-				{
-					sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i作为赎金！但是你没有那么多的积分！", targetQQID, master.ransom);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-					return EVENT_BLOCK;
-				}
-				sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i作为赎金！", targetQQID, master.ransom);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				CQ_sendGroupMsg(ac, fromGroup, "确认购买请输入1，取消购买请输入0");
-				for (k = 0; k < 10; k++)
-				{
-					if (list.QQID[k] == 0)
-						break;
-				}
-				list.QQID[k] = fromQQ;
-				list.targetQQID[k] = targetQQID;
-				list.number[k] = 1;
-				return EVENT_BLOCK;
-			}
-			else
-			{
-				memset(sendmsg, 0, sizeof(sendmsg));
-				price = int(targetdata.integral + 100);
-				if (data.integral < price)
-				{
-					sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i积分！但是你没有那么多的积分！", targetQQID, price);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-					return EVENT_BLOCK;
-				}
-				sprintf(sendmsg, "购买[CQ:at,qq=%lld]需要支付%i积分!", targetQQID, price);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				CQ_sendGroupMsg(ac, fromGroup, "确认购买请输入1，取消购买请输入0");
-				for (k = 0; k < 10; k++)
-				{
-					if (list.QQID[k] == 0)
-						break;
-				}
-				list.QQID[k] = fromQQ;
-				list.targetQQID[k] = targetQQID;
-				list.number[k] = 1;
-				return EVENT_BLOCK;
-			}
 		}
-	}
-	else if (!strcmp(msg, "赎回"))
-	{
-		if (connections.getmaster(&master, fromQQ) == 0)//读取自己的master
+		else if (n == 0)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;
 		}
-		if (master.QQID != 0)//如果有主人
+		else
 		{
-			if (master.ransom == 0)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				return EVENT_BLOCK;
-			}
-			connections.getintegral(fromQQ, &data);
-			if (data.integral < master.ransom)
-			{
-				sprintf(sendmsg, "你需要支付%i积分作为赎金,但是你并没有那么多积分！", master.ransom);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				return EVENT_BLOCK;
-			}
-			else
-			{
-				sprintf(sendmsg, "你支付了%i积分作为赎金。", master.ransom);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				connections.changeintegral(master.QQID, master.ransom, 1);
-				time(&master.Time);
-				if (connections.buyslave(fromQQ, 0, 0, master.Time) == 0)//删除自己的主人记录
-				{
-					CQ_sendGroupMsg(ac, fromGroup, Error);
-					return EVENT_BLOCK;
-				}
-				connections.changeintegral(fromQQ, -master.ransom, 1);	
-				CQ_sendGroupMsg(ac, fromGroup, "赎回成功！");
-				return EVENT_BLOCK;
-			}
+			targetQQID = n;
+		}
+		if (targetQQID == fromQQ)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "你不能购买你自己!");
+			return EVENT_BLOCK;
+		}
+		//fromQQclass.GetGroupMemberInfo(ac, fromGroup, targetQQID, targetQQinfo);//取目标QQ信息(该构件出现代码问题，停用) mark
+		recData = connections.buycheck(fromQQ, targetQQID);
+		if (recData == NULL)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		if (atoi(recData) == -1)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, strstr(recData, " ") + 1);
+			return EVENT_BLOCK;
 		}
 		else
 		{
-			CQ_sendGroupMsg(ac, fromGroup, "你是自由身，不需要赎身。");
+			for (k = 0; k < 10; k++)
+			{
+				if (list.QQID[k] == 0)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, strstr(recData, " ") + 1);
+					list.QQID[k] = fromQQ;
+					list.targetQQID[k] = targetQQID;
+					return EVENT_BLOCK;
+				}
+			}
+			CQ_sendGroupMsg(ac, fromGroup, "不好意思，服务器繁忙，稍后再试吧！或者联系维护人员哦！");
 			return EVENT_BLOCK;
 		}
+	}
+	else if (!strcmp(msg, "赎回"))
+	{
+		int number = connections.buy_back(fromQQ);
+		if (number == 1)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "赎回成功，你是自由身了！");
+		}
+		else if (number == 2)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "你是自由身，无需赎回！");
+		}
+		else if (number == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+		}
+		else
+		{
+			memset(sendmsg, 0, sizeof(sendmsg));
+			sprintf_s(sendmsg, "%s\n赎回需要%i积分，你的积分不足无法赎回！", connections.getat(fromQQ), -number);
+			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+		}
+		return EVENT_BLOCK;
 	}
 	else if (!strcmp(msg, "查询") != NULL)
 	{
@@ -1080,7 +832,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了赠送卡", fromQQ);
+					sprintf(sendmsg, "%s\n你获得了赠送卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -2:
@@ -1090,7 +842,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了强制购买卡", fromQQ);
+					sprintf(sendmsg, "%s\n你获得了强制购买卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -3:
@@ -1100,7 +852,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了保护卡", fromQQ);
+					sprintf(sendmsg, "%s\n你获得了保护卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -4:
@@ -1110,12 +862,12 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了抽奖卡", fromQQ);
+					sprintf(sendmsg, "%s\n你获得了抽奖卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 4:
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]不好意思，你什么都没抽到，下次再来吧！", fromQQ);
+					sprintf(sendmsg, "%s\n不好意思，你什么都没抽到，下次再来吧！", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 5:
@@ -1127,7 +879,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了%i积分,你现在拥有%i积分", fromQQ, number, data.integral, 1);
+					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 6:
@@ -1139,7 +891,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了%i积分,你现在拥有%i积分", fromQQ, number, data.integral, 1);
+					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 7:
@@ -1151,7 +903,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了%i积分,你现在拥有%i积分", fromQQ, number, data.integral, 1);
+					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 8:
@@ -1163,7 +915,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了%i积分,你现在拥有%i积分", fromQQ, number, data.integral, 1);
+					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 9:
@@ -1175,7 +927,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "[CQ:at,qq=%lld]你获得了%i积分,你现在拥有%i积分", fromQQ, number, data.integral, 1);
+					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				}
@@ -1197,6 +949,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (strstr(msg, "罚") != NULL)
 	{
+		int64_t n;
 		if (!strcmp(msg, "惩罚"))
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "请输入你要惩罚的好友qq以及操作,例如：惩罚xxxxxxxxxxx跳舞，可以问我惩罚有哪些哦！");//假装这是第一步
@@ -1207,83 +960,52 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "目前只有跳舞、唱歌、拖地和穿女装哦！");
 			return EVENT_BLOCK;
 		}
-		for (k = 0; k < strlen(msg); k++)
+		char askmsg[50];
+		memset(askmsg, 0, sizeof(askmsg));
+		if (strstr(msg, "女装") != NULL)
 		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
+			strcpy(askmsg, strstr(msg, "罚") + 2);
+			*(strstr(askmsg, "女")) = '\0';
 		}
-		if (k == strlen(msg))
+		else if (strstr(msg, "跳舞") != NULL)
 		{
-			return EVENT_IGNORE;
+			strcpy(askmsg, strstr(msg, "罚") + 2);
+			*(strstr(askmsg, "跳")) = '\0';
+		}
+		else if (strstr(msg, "唱歌") != NULL)
+		{
+			strcpy(askmsg, strstr(msg, "罚") + 2);
+			*(strstr(askmsg, "唱")) = '\0';
+		}
+		else if (strstr(msg, "拖地") != NULL)
+		{
+			strcpy(askmsg, strstr(msg, "罚") + 2);
+			*(strstr(askmsg, "拖")) = '\0';
 		}
 		else
 		{
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			return EVENT_BLOCK;
+		}
+		if (strlen(askmsg) <= 20)
+		{
+			
+			n = connections.getIDbyname_slave(fromQQ, askmsg);
+		}
+		else
+		{
+			n = -1;
+		}
+		if (n == -1)
+		{
+			for (k = 0; k < strlen(msg); k++)
 			{
-				if (msg[k] < 48 | msg[k]>57)
-				{
+				if (msg[k] > 47 & msg[k] < 58)
 					break;
-				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID=atoll(targetstrQQID);
-			if (connections.getmaster(&master, targetQQID) == 0)
+			if (k == strlen(msg))
 			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
 				return EVENT_BLOCK;
 			}
-			if (master.QQID == fromQQ)
-			{
-				if (strstr(msg, "女装") != NULL)
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", targetQQID);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				}
-				else if (strstr(msg, "跳舞") != NULL)
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", targetQQID);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				}
-				else if (strstr(msg, "唱歌") != NULL)
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", targetQQID);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				}
-				else if (strstr(msg, "拖地") != NULL)
-				{
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", targetQQID);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				}
-			}
-			else
-			{
-				CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶或输入错误！");
-			}
-			return EVENT_BLOCK;
-		}
-	}
-	else if ((strstr(msg, "查看") != NULL)&(strstr(msg, "新版") == NULL))
-	{
-		if (!strcmp(msg, "查看"))
-		{
-			CQ_sendGroupMsg(ac, fromGroup, "请输入你要购买的查看qq,例如：查看xxxxxxxxxxx");
-			return EVENT_BLOCK;
-		}
-		for (k = 0; k < strlen(msg); k++)
-		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
-		}
-		if (k == strlen(msg))
-		{
-			return EVENT_BLOCK;
-		}
-		else
-		{
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
 			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
 			{
@@ -1294,73 +1016,86 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				targetstrQQID[i] = msg[k];
 			}
 			targetQQID = atoll(targetstrQQID);
-			if (targetQQID < 100000)
-			{
-				return EVENT_BLOCK;
-			}
-			//fromQQclass.GetGroupMemberInfo(ac, fromGroup, targetQQID, targetQQinfo);//取目标QQ信息
-			/*if (targetQQinfo.QQID != targetQQID)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, "你查看的QQ错误或者不在此群");
-				return EVENT_BLOCK;
-			}*/
-			if (connections.getmaster(&master, targetQQID) == 0)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				return EVENT_BLOCK;
-			}
-			if (master.QQID != 0)
-			{
-				//fromQQclass.GetGroupMemberInfo(ac, fromGroup, master.QQID, masterQQinfo);
-				/*if (masterQQinfo.QQID != master.QQID)
-				{
-					CQ_sendGroupMsg(ac, fromGroup, "对方的主人并不在本群，我无法为你提供该信息");
-				}*/
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]的主人是[CQ:at,qq=%lld]", targetQQID, master.QQID);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-			}
-
-			connections.getintegral(targetQQID, &targetdata);
-			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]的积分为:%i", targetQQID, targetdata.integral);
-			CQ_sendGroupMsg(ac,fromGroup,sendmsg);
-			if (connections.listslave(slavelist, targetQQID) == 0)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				return EVENT_BLOCK;
-			}
-			for (n = 0; n < 10; n++)
-			{
-				if (slavelist[n] != 0)
-				{
-					//fromQQclass.GetGroupMemberInfo(ac, fromGroup, slavelist[n], targetQQinfo);
-					/*if (targetQQinfo.QQID != slavelist[n])
-					{
-						CQ_sendGroupMsg(ac, fromGroup, "对方的这名奴隶并不在本群，我无法为你提供该信息");
-						continue;
-					}*/
-					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "[CQ:at,qq=%lld]的奴隶有[CQ:at,qq=%lld]:%lld", targetQQID, slavelist[n],slavelist[n]);
-					CQ_sendGroupMsg(ac, fromGroup, sendmsg);			
-				}
-			}
-			return EVENT_BLOCK;
 		}
-	}
-	else if (strstr(msg, "赠送") != NULL)
-	{
-		for (k = 0; k < strlen(msg); k++)
+		else if (n == 0)
 		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
-		}
-		if (k == strlen(msg))
-		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;
 		}
 		else
 		{
+			targetQQID = n;
+		}
+		if (connections.getmaster(&master, targetQQID) == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		if (master.QQID == fromQQ)
+		{
+			if (strstr(msg, "女装") != NULL)
+			{
+				memset(sendmsg, 0, sizeof(sendmsg));
+				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", targetQQID);
+				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			}
+			else if (strstr(msg, "跳舞") != NULL)
+			{
+				memset(sendmsg, 0, sizeof(sendmsg));
+				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", targetQQID);
+				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			}
+			else if (strstr(msg, "唱歌") != NULL)
+			{
+				memset(sendmsg, 0, sizeof(sendmsg));
+				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", targetQQID);
+				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			}
+			else if (strstr(msg, "拖地") != NULL)
+			{
+				memset(sendmsg, 0, sizeof(sendmsg));
+				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", targetQQID);
+				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "请输入正确的惩罚！");
+			}			
+		}
+		else
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶或输入错误！");
+		}
+		return EVENT_BLOCK;
+	}
+	else if ((strstr(msg, "查看") != NULL)&(strstr(msg, "新版") == NULL))
+	{
+		int64_t n;
+		if (!strcmp(msg, "查看"))
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "请输入你要购买的查看qq,例如：查看xxxxxxxxxxx");
+			return EVENT_BLOCK;
+		}
+		if (strlen(strstr(msg, "看") + 2) <= 20)
+		{
+			n = connections.getIDbyname_slave(fromQQ, (char*)strstr(msg, "看") + 2);
+		}
+		else
+		{
+			n = -1;
+		}
+		if (n == -1)
+		{
+			for (k = 0; k < strlen(msg); k++)
+			{
+				if (msg[k] > 47 & msg[k] < 58)
+					break;
+			}
+			if (k == strlen(msg))
+			{
+				return EVENT_BLOCK;
+			}
+			memset(targetstrQQID, 0, sizeof(targetstrQQID));
 			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
 			{
 				if (msg[k] < 48 | msg[k]>57)
@@ -1371,30 +1106,132 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			}
 			targetQQID = atoll(targetstrQQID);
 		}
-		for (; k < strlen(msg); k++)
+		else if (n == 0)
 		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
 		}
-		for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+		else
 		{
-			if (msg[k] < 48 | msg[k]>57)
+			targetQQID = n;
+		}
+		if (targetQQID < 100000)
+		{
+			return EVENT_BLOCK;
+		}
+		//fromQQclass.GetGroupMemberInfo(ac, fromGroup, targetQQID, targetQQinfo);//取目标QQ信息
+		/*if (targetQQinfo.QQID != targetQQID)
+		{
+		CQ_sendGroupMsg(ac, fromGroup, "你查看的QQ错误或者不在此群");
+		return EVENT_BLOCK;
+		}*/
+		if (connections.getmaster(&master, targetQQID) == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		if (master.QQID != 0)
+		{
+			//fromQQclass.GetGroupMemberInfo(ac, fromGroup, master.QQID, masterQQinfo);
+			/*if (masterQQinfo.QQID != master.QQID)
 			{
-				break;
-			}
-			strintegral[i] = msg[k];
+			CQ_sendGroupMsg(ac, fromGroup, "对方的主人并不在本群，我无法为你提供该信息");
+			}*/
+			memset(sendmsg, 0, sizeof(sendmsg));
+			sprintf(sendmsg, "[CQ:at,qq=%lld]的主人是[CQ:at,qq=%lld]", targetQQID, master.QQID);
+			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		}
-		if (atoi(strintegral) <= 0)
+		connections.getintegral(targetQQID, &targetdata);
+		memset(sendmsg, 0, sizeof(sendmsg));
+		sprintf(sendmsg, "[CQ:at,qq=%lld]的积分为:%i", targetQQID, targetdata.integral);
+		CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+		if (connections.listslave(slavelist, targetQQID) == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		for (n = 0; n < 10; n++)
+		{
+			if (slavelist[n] != 0)
+			{
+				//fromQQclass.GetGroupMemberInfo(ac, fromGroup, slavelist[n], targetQQinfo);
+				/*if (targetQQinfo.QQID != slavelist[n])
+				{
+				CQ_sendGroupMsg(ac, fromGroup, "对方的这名奴隶并不在本群，我无法为你提供该信息");
+				continue;
+				}*/
+				memset(sendmsg, 0, sizeof(sendmsg));
+				sprintf_s(sendmsg, "该奴隶为[CQ:at,qq=%lld]:%lld", slavelist[n], slavelist[n]);
+				CQ_sendPrivateMsg(ac, fromQQ, sendmsg);
+			}
+		}
+		return EVENT_BLOCK;
+	}
+	else if ((strstr(msg, "赠送") != NULL) && (strstr(msg, "积分") != NULL))
+	{
+		int64_t n;
+		int integral;
+		char askmsg[50];
+		memset(askmsg, 0, sizeof(askmsg));
+		if (!strcmp(msg, "赠送"))
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "请输入你要赠送的qq及积分\n例如：赠送xxxxx积分xxx");
+			return EVENT_BLOCK;
+		}
+		if (strstr(msg, "积") != NULL)
+		{
+			strcpy(askmsg, strstr(msg, "送") + 2);
+			*(strstr(askmsg, "积")) = '\0';
+		}
+		if (strlen(askmsg) <= 20)
+		{
+			n = connections.getIDbyname_slave(fromQQ, askmsg);
+		}
+		else
+		{
+			n = -1;
+		}
+		if (n == -1)
+		{
+			for (k = 0; k < strlen(msg); k++)
+			{
+				if (msg[k] > 47 & msg[k] < 58)
+					break;
+			}
+			if (k == strlen(msg))
+			{
+				return EVENT_BLOCK;
+			}
+			memset(targetstrQQID, 0, sizeof(targetstrQQID));
+			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			{
+				if (msg[k] < 48 | msg[k]>57)
+				{
+					break;
+				}
+				targetstrQQID[i] = msg[k];
+			}
+			targetQQID = atoll(targetstrQQID);
+		}
+		else if (n == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		else
+		{
+			targetQQID = n;
+		}
+		if ((integral = atoi(strstr(msg, "分") + 2)) <= 0)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "赠送的积分不能小于或等于0");
 			return EVENT_BLOCK;
 		}
-		//readwhere(fromQQ, &data, sizeof(data), "sign");
 		connections.getintegral(fromQQ, &data);
-		if (data.integral < atoi(strintegral))
+		if (data.integral < integral)
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "你没有%i积分，你只有%i积分", atoi(strintegral), data.integral);
+			sprintf(sendmsg, "你没有%i积分，你只有%i积分", integral, data.integral);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			return EVENT_BLOCK;
 		}
@@ -1423,14 +1260,14 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			list.QQID[n] = fromQQ;
 			list.targetQQID[n] = targetQQID;
 			list.number[n] = 2;
-			list.integral[n] = atoi(strintegral);
+			list.integral[n] = integral;
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "你将赠送[CQ:at,qq=%lld] %i积分！", targetQQID, atoi(strintegral));
+			sprintf(sendmsg, "你将赠送[CQ:at,qq=%lld] %i积分！", targetQQID, integral);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			CQ_sendGroupMsg(ac, fromGroup, "确认赠送请输1，取消请输0");
 		}
 	}
-	else if (!strcmp(msg, "使用保护卡"))
+	/*else if (!strcmp(msg, "使用保护卡"))
 	{ 
 		i = connections.changeprop(fromQQ, 3, 0);
 		if (i == 1)
@@ -1462,21 +1299,58 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "你没有保护卡，快去商店兑换一张保护卡吧！");
 			return EVENT_BLOCK;
 		}
+	}*/
+	else if (!strcmp(msg, "使用取名卡"))
+	{
+		i = connections.changeprop(fromQQ, 5, 2);
+		if (i == 1)
+		{
+			memset(sendmsg, 0, sizeof(sendmsg));
+			sprintf(sendmsg, "[CQ:at,qq=%lld]\n输入1为自己取名，输入2为奴隶取名，输入0取消!", fromQQ);
+			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			list.QQID[n] = fromQQ;
+			list.number[n] = 1;
+			return EVENT_BLOCK;
+		}
+		else if (i == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		else if (i == -1)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "你没有取名卡，快去商店兑换一张取名卡吧！");
+			return EVENT_BLOCK;
+		}
 	}
 	else if (strstr(msg, "流放") != NULL)
 	{
-		for (k = 0; k < strlen(msg); k++)
+		int64_t n;
+		if (!strcmp(msg, "流放"))
 		{
-			if (msg[k] > 47 & msg[k] < 58)
-				break;
-		}
-		if (k == strlen(msg))
-		{
-			CQ_sendGroupMsg(ac, fromGroup, "请输入你要流放的奴隶qq,例如：流放xxxxxxxxxxx");//假装这是第一步
+			CQ_sendGroupMsg(ac, fromGroup, "请输入你要流放的qq\n例如：流放xxxxx");
 			return EVENT_BLOCK;
+		}
+		if (strlen(strstr(msg, "放") + 2) <= 20)
+		{
+			n = connections.getIDbyname_slave(fromQQ, (char*)strstr(msg, "放") + 2);
 		}
 		else
 		{
+			n = -1;
+		}
+		if (n == -1)
+		{
+			for (k = 0; k < strlen(msg); k++)
+			{
+				if (msg[k] > 47 & msg[k] < 58)
+					break;
+			}
+			if (k == strlen(msg))
+			{
+				return EVENT_BLOCK;
+			}
+			memset(targetstrQQID, 0, sizeof(targetstrQQID));
 			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
 			{
 				if (msg[k] < 48 | msg[k]>57)
@@ -1486,6 +1360,19 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				targetstrQQID[i] = msg[k];
 			}
 			targetQQID = atoll(targetstrQQID);
+		}
+		else if (n == 0)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		else if (n == 1)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶，你无法进行流放操作！");
+		}
+		else
+		{
+			targetQQID = n;
 		}
 		if (targetQQID == 0)
 		{
@@ -1519,7 +1406,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				return EVENT_BLOCK;
 			}
 		}
-		CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶!");
+		CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶，你无法进行流放操作!");
 		return EVENT_BLOCK;
 	}
 	else if (!strcmp(msg, "开始"))
@@ -1660,7 +1547,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, "输入:寻找房间即可查看房间列表。");
 		return EVENT_BLOCK;
 	}
-	else if (!strcmp(msg, "菜单"))
+	else if (!strcmp(msg, "菜单") || !strcmp(msg,"功能"))
 	{
 		CQ_sendGroupMsg(ac, fromGroup, "目前的功能有:\n谁是卧底\n好友买卖系统\n签到抽奖系统\n道具系统\n充值\n武理知音\n输入这些词询问我相关内容");
 		return EVENT_BLOCK;
@@ -1682,7 +1569,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (strstr(msg, "道具系统") != NULL)
 	{
-		CQ_sendGroupMsg(ac, fromGroup, "目前只能通过抽奖来获取道具，强制购买卡可以用于购买处于保护期中的玩家，赠送卡可以用于赠送别人积分，保护卡可以让自己进入保护期。输入使用保护卡即可使用，查询可以知道自己有哪些道具！");
+		CQ_sendGroupMsg(ac, fromGroup, "目前只能通过抽奖来获取道具，强制购买卡可以用于购买处于保护期中的玩家，赠送卡可以用于赠送别人积分，保护卡可以让自己进入保护期(在购买时被动使用)\n发送使用取名卡可以取名。查询可以知道自己有哪些道具！");
 		return EVENT_BLOCK;
 	}
 /*else if ((strstr(msg, "猜码图") != NULL)&(strstr(msg, "1839538956") != NULL))
@@ -2039,6 +1926,7 @@ CQEVENT(int32_t, __eventRequest_AddFriend, 24)(int32_t subType, int32_t sendTime
 */
 CQEVENT(int32_t, __eventRequest_AddGroup, 32)(int32_t subType, int32_t sendTime, int64_t fromGroup, int64_t fromQQ, const char *msg, const char *responseFlag) {
 	char sendmsg[100];
+	connection connections;//与服务器连接的实例对象
 	//if (subType == 1) {
 	//	CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPADD, REQUEST_ALLOW, "");
 	//} else if (subType == 2) {
@@ -2055,7 +1943,7 @@ CQEVENT(int32_t, __eventRequest_AddGroup, 32)(int32_t subType, int32_t sendTime,
 		if (atoi(connections.ask(sendmsg)))
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf_s(sendmsg, "groupQQ:%lld邀请我入群通过！", fromGroup);
+			sprintf_s(sendmsg, "fromQQ:%lld,groupQQ:%lld邀请我入群通过！", fromQQ, fromGroup);
 			CQ_sendPrivateMsg(ac, 3047964704, sendmsg);
 			CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPINVITE, REQUEST_ALLOW, "");
 			CQ_sendGroupMsg(ac, fromGroup, wulizhiyin);
@@ -2064,6 +1952,7 @@ CQEVENT(int32_t, __eventRequest_AddGroup, 32)(int32_t subType, int32_t sendTime,
 		{
 			CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPINVITE, REQUEST_DENY, "");
 			sprintf_s(sendmsg, "groupQQ:%lld邀请我入群拒绝！", fromGroup);
+			CQ_sendPrivateMsg(ac, 3047964704, sendmsg);
 		}
 	}
 	return EVENT_BLOCK; //关于返回值说明, 见“_eventPrivateMsg”函数
