@@ -626,6 +626,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if ((strstr(msg, "奖励") != NULL)&(fromQQ == 3047964704))
 	{
+		memset(targetstrQQID, 0, sizeof(targetstrQQID));
 		strcpy(targetstrQQID, strstr(msg, "励") + 2);
 		targetQQID = atoll(targetstrQQID);
 		strcpy(tips, strstr(msg, "分") + 2);
@@ -710,29 +711,24 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		else
 		{
-			n == -1;
+			n = -1;
 		}
 		if (n == -1)
 		{
-			for (k = 0; k < strlen(msg); k++)
-			{
-				if (msg[k] > 47 & msg[k] < 58)
-					break;
-			}
-			if (k == strlen(msg))
-			{
-				return EVENT_BLOCK;
-			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			if (strstr(msg, "qq=") == NULL)
 			{
-				if (msg[k] < 48 | msg[k]>57)
+				targetQQID = atoll(strstr(msg, "买") + 2);
+				if (targetQQID == 0)
 				{
-					break;
+					return EVENT_BLOCK;
 				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID = atoll(targetstrQQID);
+			else
+			{
+				strcpy(targetstrQQID, strstr(msg, "=") + 1);
+				targetQQID = atoll(targetstrQQID);
+			}
 		}
 		else if (n == 0)
 		{
@@ -803,7 +799,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	{
 		connections.getintegral(fromQQ, &data);
 		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf(sendmsg, "你现在的积分为：%i", data.integral);
+		sprintf_s(sendmsg, "你现在的积分为：%i", data.integral);
 		CQ_sendGroupMsg(ac,fromGroup,sendmsg);
 		CQ_sendGroupMsg(ac, fromGroup, connections.listprop(fromQQ));
 		return EVENT_BLOCK;
@@ -832,7 +828,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%s\n你获得了赠送卡", connections.getat(fromQQ));
+					sprintf_s(sendmsg, "%s\n你获得了赠送卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -2:
@@ -842,7 +838,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%s\n你获得了强制购买卡", connections.getat(fromQQ));
+					sprintf_s(sendmsg, "%s\n你获得了强制购买卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -3:
@@ -852,7 +848,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%s\n你获得了保护卡", connections.getat(fromQQ));
+					sprintf_s(sendmsg, "%s\n你获得了保护卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case -4:
@@ -862,12 +858,12 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 						return EVENT_BLOCK;
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%s\n你获得了抽奖卡", connections.getat(fromQQ));
+					sprintf_s(sendmsg, "%s\n你获得了抽奖卡", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 4:
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "%s\n不好意思，你什么都没抽到，下次再来吧！", connections.getat(fromQQ));
+					sprintf_s(sendmsg, "%s\n不好意思，你什么都没抽到，下次再来吧！", connections.getat(fromQQ));
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 5:
@@ -879,7 +875,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
+					sprintf_s(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 6:
@@ -891,7 +887,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
+					sprintf_s(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 7:
@@ -903,7 +899,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
+					sprintf_s(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 8:
@@ -915,7 +911,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
+					sprintf_s(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				case 9:
@@ -927,7 +923,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					}
 					memset(sendmsg, 0, sizeof(sendmsg));
 					connections.getintegral(fromQQ, &data);
-					sprintf(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
+					sprintf_s(sendmsg, "%s\n你获得了%i积分,你现在拥有%i积分", connections.getat(fromQQ), number, data.integral, 1);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					break;
 				}
@@ -997,25 +993,20 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		if (n == -1)
 		{
-			for (k = 0; k < strlen(msg); k++)
-			{
-				if (msg[k] > 47 & msg[k] < 58)
-					break;
-			}
-			if (k == strlen(msg))
-			{
-				return EVENT_BLOCK;
-			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			if (strstr(msg, "qq=") == NULL)
 			{
-				if (msg[k] < 48 | msg[k]>57)
+				targetQQID = atoll(strstr(msg, "罚") + 2);
+				if (targetQQID == 0)
 				{
-					break;
+					return EVENT_BLOCK;
 				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID = atoll(targetstrQQID);
+			else
+			{
+				strcpy(targetstrQQID, strstr(msg, "=") + 1);
+				targetQQID = atoll(targetstrQQID);
+			}
 		}
 		else if (n == 0)
 		{
@@ -1036,25 +1027,25 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			if (strstr(msg, "女装") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", targetQQID);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", targetQQID);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "跳舞") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", targetQQID);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", targetQQID);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "唱歌") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", targetQQID);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", targetQQID);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "拖地") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", targetQQID);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", targetQQID);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else
@@ -1086,25 +1077,20 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		if (n == -1)
 		{
-			for (k = 0; k < strlen(msg); k++)
-			{
-				if (msg[k] > 47 & msg[k] < 58)
-					break;
-			}
-			if (k == strlen(msg))
-			{
-				return EVENT_BLOCK;
-			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			if (strstr(msg, "qq=") == NULL)
 			{
-				if (msg[k] < 48 | msg[k]>57)
+				targetQQID = atoll(strstr(msg, "看") + 2);
+				if (targetQQID == 0)
 				{
-					break;
+					return EVENT_BLOCK;
 				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID = atoll(targetstrQQID);
+			else
+			{
+				strcpy(targetstrQQID, strstr(msg, "=") + 1);
+				targetQQID = atoll(targetstrQQID);
+			}
 		}
 		else if (n == 0)
 		{
@@ -1138,12 +1124,12 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "对方的主人并不在本群，我无法为你提供该信息");
 			}*/
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]的主人是[CQ:at,qq=%lld]", targetQQID, master.QQID);
+			sprintf_s(sendmsg, "[CQ:at,qq=%lld]的主人是[CQ:at,qq=%lld]", targetQQID, master.QQID);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		}
 		connections.getintegral(targetQQID, &targetdata);
 		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf(sendmsg, "[CQ:at,qq=%lld]的积分为:%i", targetQQID, targetdata.integral);
+		sprintf_s(sendmsg, "[CQ:at,qq=%lld]的积分为:%i", targetQQID, targetdata.integral);
 		CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		if (connections.listslave(slavelist, targetQQID) == 0)
 		{
@@ -1167,17 +1153,17 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		return EVENT_BLOCK;
 	}
+	else if (!strcmp(msg, "赠送"))
+	{
+		CQ_sendGroupMsg(ac, fromGroup, "请输入你要赠送的qq及积分\n例如：赠送xxxxx积分xxx");
+		return EVENT_BLOCK;
+	}
 	else if ((strstr(msg, "赠送") != NULL) && (strstr(msg, "积分") != NULL))
 	{
 		int64_t n;
 		int integral;
 		char askmsg[50];
 		memset(askmsg, 0, sizeof(askmsg));
-		if (!strcmp(msg, "赠送"))
-		{
-			CQ_sendGroupMsg(ac, fromGroup, "请输入你要赠送的qq及积分\n例如：赠送xxxxx积分xxx");
-			return EVENT_BLOCK;
-		}
 		if (strstr(msg, "积") != NULL)
 		{
 			strcpy(askmsg, strstr(msg, "送") + 2);
@@ -1193,25 +1179,20 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		if (n == -1)
 		{
-			for (k = 0; k < strlen(msg); k++)
-			{
-				if (msg[k] > 47 & msg[k] < 58)
-					break;
-			}
-			if (k == strlen(msg))
-			{
-				return EVENT_BLOCK;
-			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			if (strstr(msg, "qq=") == NULL)
 			{
-				if (msg[k] < 48 | msg[k]>57)
+				targetQQID = atoll(strstr(msg, "送") + 2);
+				if (targetQQID == 0)
 				{
-					break;
+					return EVENT_BLOCK;
 				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID = atoll(targetstrQQID);
+			else
+			{
+				strcpy(targetstrQQID, strstr(msg, "=") + 1);
+				targetQQID = atoll(targetstrQQID);
+			}
 		}
 		else if (n == 0)
 		{
@@ -1231,7 +1212,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		if (data.integral < integral)
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "你没有%i积分，你只有%i积分", integral, data.integral);
+			sprintf_s(sendmsg, "你没有%i积分，你只有%i积分", integral, data.integral);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			return EVENT_BLOCK;
 		}
@@ -1262,7 +1243,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			list.number[n] = 2;
 			list.integral[n] = integral;
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "你将赠送[CQ:at,qq=%lld] %i积分！", targetQQID, integral);
+			sprintf_s(sendmsg, "你将赠送[CQ:at,qq=%lld] %i积分！", targetQQID, integral);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			CQ_sendGroupMsg(ac, fromGroup, "确认赠送请输1，取消请输0");
 		}
@@ -1286,7 +1267,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				return EVENT_BLOCK;
 			}
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]使用保护卡成功!", fromQQ);
+			sprintf_s(sendmsg, "[CQ:at,qq=%lld]使用保护卡成功!", fromQQ);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		}
 		else if (i == 0)
@@ -1306,7 +1287,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		if (i == 1)
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]\n输入1为自己取名，输入2为奴隶取名，输入0取消!", fromQQ);
+			sprintf_s(sendmsg, "%s\n输入1为自己取名，输入2为奴隶取名，输入0取消!", connections.getat(fromQQ));
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			list.QQID[n] = fromQQ;
 			list.number[n] = 1;
@@ -1341,25 +1322,20 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		if (n == -1)
 		{
-			for (k = 0; k < strlen(msg); k++)
-			{
-				if (msg[k] > 47 & msg[k] < 58)
-					break;
-			}
-			if (k == strlen(msg))
-			{
-				return EVENT_BLOCK;
-			}
 			memset(targetstrQQID, 0, sizeof(targetstrQQID));
-			for (i = 0; k < strlen(msg); k++, i++)//取连续的数字
+			if (strstr(msg, "qq=") == NULL)
 			{
-				if (msg[k] < 48 | msg[k]>57)
+				targetQQID = atoll(strstr(msg, "放") + 2);
+				if (targetQQID == 0)
 				{
-					break;
+					return EVENT_BLOCK;
 				}
-				targetstrQQID[i] = msg[k];
 			}
-			targetQQID = atoll(targetstrQQID);
+			else
+			{
+				strcpy(targetstrQQID, strstr(msg, "=") + 1);
+				targetQQID = atoll(targetstrQQID);
+			}
 		}
 		else if (n == 0)
 		{
@@ -1378,33 +1354,30 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		{
 			return EVENT_BLOCK;
 		}
-		if (connections.listslave(slavelist, fromQQ) == 0)
+		if (connections.getmaster(&master, fromQQ) == 0)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;
 		}
-		for (n = 0; n < 10; n++)
+		if (master.QQID == fromQQ)
 		{
-			if (slavelist[n] == targetQQID)
+			memset(sendmsg, 0, sizeof(sendmsg));
+			sprintf_s(sendmsg, "你确定要流放[CQ:at,qq=%lld]吗?\n确认流放请输1，取消请输0！", targetQQID);
+			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+			for (n = 0; n < 10; n++)
 			{
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "你确定要流放[CQ:at,qq=%lld]吗?\n确认流放请输1，取消请输0！", targetQQID);
-				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-				for (n = 0; n < 10; n++)
+				if (list.QQID[n] == 0)
+					break;
+				if (n == 9)
 				{
-					if (list.QQID[n] == 0)
-						break;
-					if (n == 9)
-					{
-						CQ_sendGroupMsg(ac, fromGroup, "服务器繁忙，请稍后再试！");
-						return EVENT_BLOCK;
-					}
+					CQ_sendGroupMsg(ac, fromGroup, "服务器繁忙，请稍后再试！");
+					return EVENT_BLOCK;
 				}
-				list.QQID[n] = fromQQ;
-				list.targetQQID[n] = targetQQID;
-				list.number[n] = 3;
-				return EVENT_BLOCK;
 			}
+			list.QQID[n] = fromQQ;
+			list.targetQQID[n] = targetQQID;
+			list.number[n] = 3;
+			return EVENT_BLOCK;
 		}
 		CQ_sendGroupMsg(ac, fromGroup, "对方不是你的奴隶，你无法进行流放操作!");
 		return EVENT_BLOCK;
@@ -1462,10 +1435,10 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				if (gameroom[sum].memberinhere(fromQQ) == 0)
 				{
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "房间%i的房主退出了房间，房主变更为:%lld", gameroom[sum].roomid, gameroom[sum].memberlist(1)[1]);
+					sprintf_s(sendmsg, "房间%i的房主退出了房间，房主变更为:%lld", gameroom[sum].roomid, gameroom[sum].memberlist(1)[1]);
 					CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 					memset(sendmsg, 0, sizeof(sendmsg));
-					sprintf(sendmsg, "你成为了房间%i的房主。", gameroom[sum].roomid);
+					sprintf_s(sendmsg, "你成为了房间%i的房主。", gameroom[sum].roomid);
 					CQ_sendPrivateMsg(ac, gameroom[sum].memberlist(1)[1], sendmsg);
 				}
 				if (gameroom[sum].deletemember(fromQQ) == 1)
@@ -1478,7 +1451,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					return EVENT_BLOCK;
 				}
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "有一名玩家退出了你所在的房间,现在你的房间有%i名玩家！", gameroom[sum].number);
+				sprintf_s(sendmsg, "有一名玩家退出了你所在的房间,现在你的房间有%i名玩家！", gameroom[sum].number);
 				CQ_sendPrivateMsg(ac, gameroom[sum].memberlist(1)[0], sendmsg);
 				return EVENT_BLOCK;
 			}
@@ -1494,7 +1467,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			if (gameroom[sum].memberinhere(fromQQ) > -1)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]请先退出你所在的游戏房间！", fromQQ);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]请先退出你所在的游戏房间！", fromQQ);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				return EVENT_BLOCK;
 			}
@@ -1508,7 +1481,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				srand(time(NULL));
 				gameroom[sum].roomid = 10000 + rand() % 90000;
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "你创建的房间号为：%i,在群里发送房间号即可加入房间！输入退出即可离开房间！房主输入开始则开始游戏！", gameroom[sum].roomid);
+				sprintf_s(sendmsg, "你创建的房间号为：%i,在群里发送房间号即可加入房间！输入退出即可离开房间！房主输入开始则开始游戏！", gameroom[sum].roomid);
 				gameroom[sum].addmember(fromQQ);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				return EVENT_BLOCK;
@@ -1528,9 +1501,9 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			}
 			memset(sendmsg, 0, sizeof(sendmsg));
 			if (gameroom[sum].runstate)
-				sprintf(sendmsg, "%i号房间:%i(正在游戏中)", sum + 1, gameroom[sum].roomid);
+				sprintf_s(sendmsg, "%i号房间:%i(正在游戏中)", sum + 1, gameroom[sum].roomid);
 			else
-				sprintf(sendmsg, "%i号房间:%i(等待中)\n房主为:%lld", sum + 1, gameroom[sum].roomid, gameroom[sum].memberlist(1)[0]);
+				sprintf_s(sendmsg, "%i号房间:%i(等待中)\n房主为:%lld", sum + 1, gameroom[sum].roomid, gameroom[sum].memberlist(1)[0]);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		}
 		sprintf_s(tips, "%i", x);
@@ -1586,7 +1559,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			srand(time(NULL));
 			gameroom.number = rand() % 401;
 			memset(where, 0, sizeof(where));
-			sprintf(where, "f:/mingxing1/%i.txt",gameroom.number);
+			sprintf_s(where, "f:/mingxing1/%i.txt",gameroom.number);
 			fopen_s(&fp, where, "r");
 			if (fp == NULL)
 			{
@@ -1610,10 +1583,10 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			gameroom.state = 1;
 			gameroom.rank = 1;
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "给个小提示哦，是一个名字为%i个字的明星", int(n / 2));
+			sprintf_s(sendmsg, "给个小提示哦，是一个名字为%i个字的明星", int(n / 2));
 			CQ_sendGroupMsg(ac, fromGroup,sendmsg);
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name,gameroom.difficulty);
+			sprintf_s(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name,gameroom.difficulty);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			return EVENT_BLOCK;
 		}
@@ -1623,13 +1596,13 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		if (strstr(msg, gameroom.name) != NULL)
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]回答正确，获得5点积分！", fromQQ);
+			sprintf_s(sendmsg, "[CQ:at,qq=%lld]回答正确，获得5点积分！", fromQQ);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			gameroom.difficulty = 7;
 			if (changeintegral(fromQQ, 5) == 0)
 			{
 				memset(tips, 0, sizeof(tips));
-				sprintf(tips, "为%lld增加%i积分失败！", fromQQ, 5);
+				sprintf_s(tips, "为%lld增加%i积分失败！", fromQQ, 5);
 				CQ_addLog(ac, CQLOG_ERROR, "猜码图", tips);
 			}
 			gameroom.rank++;
@@ -1644,7 +1617,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				srand(time(NULL));
 				gameroom.number = rand() % 401;
 				memset(where, 0, sizeof(where));
-				sprintf(where, "f:/mingxing1/%i.txt", gameroom.number);
+				sprintf_s(where, "f:/mingxing1/%i.txt", gameroom.number);
 				fopen_s(&fp, where, "r");
 				if (fp == NULL)
 				{
@@ -1664,10 +1637,10 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 					fclose(fp);
 				}
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "给个小提示哦，是一个%i个字的明星", n / 2);
+				sprintf_s(sendmsg, "给个小提示哦，是一个%i个字的明星", n / 2);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
+				sprintf_s(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				return EVENT_BLOCK;
 			}
@@ -1675,7 +1648,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		else if (strstr(msg, "下一个") != NULL)
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "好吧，这位明星是%s!", gameroom.name);
+			sprintf_s(sendmsg, "好吧，这位明星是%s!", gameroom.name);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			gameroom.rank++;
 			if (gameroom.rank > 15)
@@ -1689,7 +1662,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				srand(time(NULL));
 				gameroom.number = rand() % 401;
 				memset(where, 0, sizeof(where));
-				sprintf(where, "f:/mingxing1/%i.txt", gameroom.number);
+				sprintf_s(where, "f:/mingxing1/%i.txt", gameroom.number);
 				fopen_s(&fp, where, "r");
 				if (fp == NULL)
 				{
@@ -1710,10 +1683,10 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 				}
 				gameroom.difficulty = 7;
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "给个小提示哦，是一个%i个字的明星", n / 2);
+				sprintf_s(sendmsg, "给个小提示哦，是一个%i个字的明星", n / 2);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
+				sprintf_s(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				return EVENT_BLOCK;
 			}
@@ -1738,14 +1711,14 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "好吧，我就稍稍降低点难度吧！");
 			gameroom.difficulty -= 2;
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
+			sprintf_s(sendmsg, "[CQ:image,file=%s%i.jpg]", gameroom.name, gameroom.difficulty);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			return EVENT_BLOCK;
 		}
 		else
 		{
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "[CQ:at,qq=%lld]回答错误！", fromQQ);
+			sprintf_s(sendmsg, "[CQ:at,qq=%lld]回答错误！", fromQQ);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			return EVENT_BLOCK;
 		}
@@ -1782,7 +1755,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			if (gameroom[sum].runstate == 1)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf(sendmsg, "[CQ:at,qq=%lld]该房间已开始游戏，你不能加入！",fromQQ);
+				sprintf_s(sendmsg, "[CQ:at,qq=%lld]该房间已开始游戏，你不能加入！",fromQQ);
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 				return EVENT_BLOCK;
 			}
@@ -1808,7 +1781,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			sprintf_s(sendmsg, "加入%i成功,输入退出即可离开房间！", gameroom[sum].roomid);
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf(sendmsg, "一名玩家加入了你的房间，现在你的房间有%i名玩家", gameroom[sum].number);
+			sprintf_s(sendmsg, "一名玩家加入了你的房间，现在你的房间有%i名玩家", gameroom[sum].number);
 			CQ_sendPrivateMsg(ac, gameroom[sum].memberlist(1)[0], sendmsg);
 			return EVENT_BLOCK;
 		}
@@ -1911,7 +1884,7 @@ CQEVENT(int32_t, __eventFriend_Add, 16)(int32_t subType, int32_t sendTime, int64
 CQEVENT(int32_t, __eventRequest_AddFriend, 24)(int32_t subType, int32_t sendTime, int64_t fromQQ, const char *msg, const char *responseFlag) {
 	char sendmsg[1000];
 	memset(sendmsg, 0, sizeof(sendmsg));
-	sprintf(sendmsg, wulizhiyin);
+	sprintf_s(sendmsg, wulizhiyin);
 	CQ_setFriendAddRequest(ac, responseFlag, REQUEST_ALLOW, "");
 	CQ_sendPrivateMsg(ac, fromQQ, sendmsg);
 	return EVENT_IGNORE; //关于返回值说明, 见“_eventPrivateMsg”函数

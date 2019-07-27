@@ -352,6 +352,17 @@ def slave_buyneedintegral(slave_id,connection):
         else:
             return 2,result[1]+100#可购买，赎金
 
+def getat(id,connection):
+    cursor = connection.cursor()
+    sql = "select name from sign where id = '%s'"%id
+    if 0 == cursor.execute(sql):
+        return '[CQ:at,qq=%s]'%id
+    name = cursor.fetchone()[0]
+    if name == '无':
+        return '[CQ:at,qq=%s]'%id
+    else:
+        return name
+
 def processforslave(dictionary,connection):
     cursor = connection.cursor()
     outcome = '0'
@@ -513,6 +524,8 @@ def processforslave(dictionary,connection):
                             sql = "delete from prop where id = '%s' and kind = 5"%dictionary['user']
                         elif number >1:
                             sql = "update prop set number = number -1 where id = '%s' and kind = 5"%dictionary['user']
+                        if(0 == cursor.execute(sql)):
+                            return '0'
                         connection.commit()
                         return '1'
                 if 0 == cursor.execute(sql):
@@ -921,7 +934,8 @@ def processforprop(dictionary,connection):
             else:
                 name = cursor.fetchone()[0]
                 sql = "select number from prop where id = '%s' and kind = %s"%(dictionary['user'],dictionary['rank'])
-                if(0==cursor.execute(sql)):
+                if 0 == cursor.execute(sql):
+                    return '-1'
                     return '-1'
                 result=cursor.fetchone()
                 if int(result[0]) <= 0:
@@ -947,9 +961,9 @@ def processforprop(dictionary,connection):
     elif dictionary['action']=='list':
         sql="select number,name from prop where id = '%s'"%dictionary['user']
         if(0==cursor.execute(sql)):
-            return "[CQ:at,qq=%s]你的道具还是空的！"%dictionary['user']
+            return "%s你的道具还是空的！"%getat(dictionary['user'],connection)
         else:
-            outcome="[CQ:at,qq=%s]拥有:"%dictionary['user']
+            outcome="%s拥有:"%getat(dictionary['user'],connection)
             for i in range(0,cursor.rowcount):
                 result=cursor.fetchone()
                 outcome+='\n'+str(result[0])+'个'+str(result[1])

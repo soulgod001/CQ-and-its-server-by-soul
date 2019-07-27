@@ -109,10 +109,17 @@ int connection::getweatherlist(int64_t *grouplist, int kind)
 //
 char *connection::getat(int64_t QQID)
 {
-	char sendmsg[20];
+	char sendmsg[200];
 	memset(sendmsg, 0, sizeof(sendmsg));
-	sprintf_s(sendmsg, "user:%lld\ntype:sign\naction:getat\nsendby:soul", QQID);
-	return ask(sendmsg);
+	sprintf_s(sendmsg, "user:%lld\ntype:slave\naction:getat\nsendby:soul", QQID);
+	char *recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		memset(sendmsg, 0, sizeof(sendmsg));
+		sprintf_s(sendmsg, "[CQ:at,qq=%lld]", QQID);
+		return sendmsg;
+	}
+	return recData;
 }
 //Ê§°Ü·µ»ØNULL
 char *connection::ask(char *content)
