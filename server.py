@@ -11,7 +11,7 @@ def getyday(day):
         return 0
     [year,month,day]=day.split('-')
     yday = [0,31,59,90,120,151,181,212,243,273,304,334]
-    return yday[int(month)]+int(day)
+    return yday[int(month)-1]+int(day)
 
 def processforsign(dictionary,connection):
     outcome = '0'
@@ -60,7 +60,7 @@ def getsigndate(QQID,connection):
             if (str(nowtime.tm_year)+'-'+str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday)) == result:
                 return 0
             else:
-                yday = getyday(str(nowtime.tm_year)+'-'+str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
+                yday = getyday(result)
                 if nowtime.tm_yday < yday:
                     if nowtime.tm_yday - yday <= -363:
                         return 2
@@ -862,9 +862,13 @@ def processforslave(dictionary,connection):
             return '0'
         outcome=""
         for x in range(0,i):
-            result=cursor.fetchone()
-            outcome+=result[0]
-            outcome+=' '
+            result=cursor.fetchone()[0]
+            outcome+=getat(result,connection)
+            outcome+=':%s\n'%result
+            if(getsigndate(result,connection)!=1):
+                outcome += "近日已签到！\n"
+            else:
+                outcome += "近日未签到！\n"
         return outcome
     elif dictionary['action']=='delete':
         sql="update master set masterid = '0' and ransom = 0 where id = '%s'"%dictionary['user']

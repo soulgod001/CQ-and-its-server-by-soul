@@ -1136,6 +1136,8 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;
 		}
+		memset(tips, 0, sizeof(tips));
+		strcpy(tips, connections.getat(targetQQID));
 		if (master.QQID != 0)
 		{
 			//fromQQclass.GetGroupMemberInfo(ac, fromGroup, master.QQID, masterQQinfo);
@@ -1144,33 +1146,24 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "对方的主人并不在本群，我无法为你提供该信息");
 			}*/
 			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf_s(sendmsg, "[CQ:at,qq=%lld]的主人是[CQ:at,qq=%lld]", targetQQID, master.QQID);
+			sprintf_s(sendmsg, "%s的主人是%s", tips, connections.getat(master.QQID));
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 		}
 		connections.getintegral(targetQQID, &targetdata);
 		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf_s(sendmsg, "[CQ:at,qq=%lld]的积分为:%i", targetQQID, targetdata.integral);
+		sprintf_s(sendmsg, "%s的积分为:%i", tips, targetdata.integral);
 		CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-		if (connections.listslave(slavelist, targetQQID) == 0)
+		char *recData = connections.listslave(targetQQID);
+		if (recData == NULL)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;
 		}
-		for (n = 0; n < 10; n++)
+		else if (!strcmp(recData, "0"))
 		{
-			if (slavelist[n] != 0)
-			{
-				//fromQQclass.GetGroupMemberInfo(ac, fromGroup, slavelist[n], targetQQinfo);
-				/*if (targetQQinfo.QQID != slavelist[n])
-				{
-				CQ_sendGroupMsg(ac, fromGroup, "对方的这名奴隶并不在本群，我无法为你提供该信息");
-				continue;
-				}*/
-				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "该奴隶为[CQ:at,qq=%lld]:%lld", slavelist[n], slavelist[n]);
-				CQ_sendPrivateMsg(ac, fromQQ, sendmsg);
-			}
+			return EVENT_BLOCK;
 		}
+		CQ_sendPrivateMsg(ac, fromQQ, recData);
 		return EVENT_BLOCK;
 	}
 	else if (!strcmp(msg, "赠送"))
@@ -1374,7 +1367,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		{
 			return EVENT_BLOCK;
 		}
-		if (connections.getmaster(&master, fromQQ) == 0)
+		if (connections.getmaster(&master, targetQQID) == 0)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, Error);
 			return EVENT_BLOCK;

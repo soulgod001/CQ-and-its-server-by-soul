@@ -49,7 +49,7 @@ public:
 	char *listprop(int64_t QQID);
 	char *raffle(int64_t QQID);
 	int getmaster(masterlist *master, int64_t QQID);
-	int listslave(int64_t *list, int64_t QQID); //mark 将返回数据列表改为直接返回可发送的消息，发送消息格式为QQID（name）（近日签到状态）
+	char *listslave( int64_t QQID); //mark 将返回数据列表改为直接返回可发送的消息，发送消息格式为QQID（name）（近日签到状态）
 	int deleteslave(int64_t slave);
 	int buy_back(int64_t QQID);
 	int buyslave(int64_t masterID, int64_t slaveID);
@@ -399,7 +399,7 @@ int connection::deleteslave(int64_t slave)
 	return atoi(recData);
 }
 //成功返回1，失败返回0
-int connection::listslave(int64_t *list, int64_t QQID)
+char *connection::listslave( int64_t QQID)
 {
 	char sendmsg[200];
 	char *recData;
@@ -414,23 +414,7 @@ int connection::listslave(int64_t *list, int64_t QQID)
 	{
 		return 0;
 	}
-	while (recData[i] != '\0')
-	{
-		while (recData[i] != ' ' & recData[i] != '\0')
-		{
-			sub[t] = recData[i];
-			i++;
-			t++;
-		}
-		i++;
-		t = 0;
-		list[x] = atoll(sub);
-		x++;
-		if (x == 10)
-			break;
-		memset(sub,0,sizeof(sub));
-	}
-	return 1;
+	return recData;
 }
 //将指定id的master成功返回1，失败返回0
 int connection::getmaster(masterlist *master, int64_t QQID)
