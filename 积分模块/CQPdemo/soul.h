@@ -56,7 +56,8 @@ public:
 	int slave_putname(int64_t masterID, int64_t slaveID, char *name);
 	int64_t getIDbyname_slave(int64_t user, char *name);
 	char *buycheck(int64_t masterID, int64_t slaveID);
-	bool put_Administorforgroup(int64_t QQID, int64_t GroupID, int rank);//mark 还未完成的功能
+	bool put_Administorforgroup(int64_t QQID, int64_t GroupID, int grade);
+	int get_Administorforgroup(int64_t QQID, int64_t GroupID);
 	char *sign(int64_t QQID, int64_t groupid);
 	int changeintegral(int64_t QQID, int number,int type);
 	int getintegral(int64_t QQID,QDdata *sign);
@@ -327,10 +328,33 @@ char *connection::buycheck(int64_t masterID, int64_t slaveID)
 	recData = ask(sendmsg);
 	return recData;
 }
-//
-bool connection::put_Administorforgroup(int64_t QQID, int64_t GroupID, int rank)
+//成功返回1，失败返回0
+bool connection::put_Administorforgroup(int64_t QQID, int64_t GroupID, int grade)
 {
-
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:administor\naction:put\ngroupid:%lld\ngrade:%i\nsendby:soul", QQID, GroupID, grade);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//返回rank，若失败默认返回0
+int connection::get_Administorforgroup(int64_t QQID, int64_t GroupID)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:administor\naction:get\ngroupid:%lld\nsendby:soul", QQID, GroupID);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
 }
 //以奴隶主的身份使用取名卡为奴隶取名，成功返回1，失败返回0，缺少取名卡返回-2，不是对方的主人返回-1
 int connection::slave_putname(int64_t masterID, int64_t slaveID, char *name)

@@ -6,6 +6,13 @@ import numpy
 import processfor
 import random
 
+def getyday(day):
+    if day == '0':
+        return 0
+    [year,month,day]=day.split('-')
+    yday = [0,31,59,90,120,151,181,212,243,273,304,334]
+    return yday[int(month)]+int(day)
+
 def processforsign(dictionary,connection):
     outcome = '0'
     if dictionary['action'] == 'get':
@@ -14,6 +21,32 @@ def processforsign(dictionary,connection):
         return changeintegral(dictionary['user'],int(dictionary['number']),connection)
     elif dictionary['action'] == 'sign':
         return sign(dictionary,connection)
+
+def processforAdministor(dictionary,connection):
+    cursor = connection.cursor()
+    if dictionary['action'] == 'put':
+        sql = "insert into administor values('%s',%s,'%s')"%(dictionary['user'],dictionary['grade'],dictionary['groupid'])
+        if 0 == cursor.execute(sql):
+            return '0'
+        return '1'
+    elif dictionary['action'] == 'get':
+        sql = "select grade from administor where id = '%s' and groupid = '%s'"%(dictionary['user'],dictionary['groupid'])
+        if 0 == cursor.execute(sql):
+            sql = "select grade from administor where id = '%s' and groupid = '0'"%dictionary['user']
+            if 0 == cursor.execute(sql):
+                return '0'
+            grade = cursor.fetchone()[0]
+            return str(grade)
+        groupgrade = cursor.fetchone()[0]
+        sql = "select grade from administor where id = '%s' and groupid = '0'"%dictionary['user']
+        if 0 == cursor.execute(sql):
+            return str(groupgrade)
+        grade = cursor.fetchone()[0]
+        if(grade > groupgrade):
+            return str(grade)
+        else:
+            return str(grougrade)
+    return '0'
 
 def getsigndate(QQID,connection):
     cursor = connection.cursor()
@@ -27,6 +60,14 @@ def getsigndate(QQID,connection):
             if (str(nowtime.tm_year)+'-'+str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday)) == result:
                 return 0
             else:
+                yday = getyday(str(nowtime.tm_year)+'-'+str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
+                if nowtime.tm_yday < yday:
+                    if nowtime.tm_yday - yday <= -363:
+                        return 2
+                    else:
+                        return 1
+                if nowtime.tm_yday - yday <=2:
+                    return 2
                 return 1
     except BaseException as e:
         print(e)
@@ -59,7 +100,8 @@ def sign(dictionary,connection):
     cursor = connection.cursor()
     nowtime = time.localtime(time.time())
     try:
-        if(getsigndate(dictionary['user'],connection)):
+        number = getsigndate(dictionary['user'],connection)
+        if(number == 1):
             sql = "select masterid from master where id = '%s'"%dictionary['user']
             if(0 == cursor.execute(sql)):
                 sql = "select * from sign where groupid = '%s' and date = '%s'"%(dictionary['groupid'],str(nowtime.tm_year)+'-'\
@@ -71,14 +113,14 @@ def sign(dictionary,connection):
                     cursor.execute(sql)
                     number = cursor.fetchone()[0]
                     updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                    return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,80-n*10,number)
+                    return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,80-n*10,number)
                 elif n >= 3:
                     changeintegral(dictionary['user'],50,connection)
                     sql = "select integral from sign where id = '%s'"%dictionary['user']
                     cursor.execute(sql)
                     number = cursor.fetchone()[0]
                     updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                    return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,50,number)
+                    return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,50,number)
             else:
                 result = cursor.fetchone()
                 if(result[0] == '0'):
@@ -91,14 +133,14 @@ def sign(dictionary,connection):
                         cursor.execute(sql)
                         number = cursor.fetchone()[0]
                         updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                        return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,80-n*10,number)
+                        return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,80-n*10,number)
                     elif n >= 3:
                         changeintegral(dictionary['user'],50,connection)
                         sql = "select integral from sign where id = '%s'"%dictionary['user']
                         cursor.execute(sql)
                         number = cursor.fetchone()[0]
                         updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                        return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,50,number)
+                        return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,50,number)
                 else:
                     sql = "select * from sign where groupid = '%s' and date = '%s'"%(dictionary['groupid'],str(nowtime.tm_year)+'-'\
                                                                              +str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
@@ -110,7 +152,7 @@ def sign(dictionary,connection):
                         cursor.execute(sql)
                         number = cursor.fetchone()[0]
                         updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                        return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,64-n*8,number)
+                        return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,64-n*8,number)
                     elif n>=3:
                         changeintegral(dictionary['user'],40,connection)
                         changeintegral(result[0],10,connection)
@@ -118,9 +160,69 @@ def sign(dictionary,connection):
                         cursor.execute(sql)
                         number = cursor.fetchone()[0]
                         updatesigndate(dictionary['user'],dictionary['groupid'],connection)
-                        return "[CQ:at,qq=%s]签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(dictionary['user'],n+1,40,number)
+                        return "%s签到成功\n你是本群第%i个签到的人\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,40,number)
+        elif number == 2:
+            sql = "select masterid from master where id = '%s'"%dictionary['user']
+            if(0 == cursor.execute(sql)):
+                sql = "select * from sign where groupid = '%s' and date = '%s'"%(dictionary['groupid'],str(nowtime.tm_year)+'-'\
+                                                                             +str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
+                n = cursor.execute(sql)
+                if n < 3:
+                    changeintegral(dictionary['user'],90-n*10,connection)
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    cursor.execute(sql)
+                    number = cursor.fetchone()[0]
+                    updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                    return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,90-n*10,number)
+                elif n >= 3:
+                    changeintegral(dictionary['user'],60,connection)
+                    sql = "select integral from sign where id = '%s'"%dictionary['user']
+                    cursor.execute(sql)
+                    number = cursor.fetchone()[0]
+                    updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                    return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,60,number)
+            else:
+                result = cursor.fetchone()
+                if(result[0] == '0'):
+                    sql = "select * from sign where groupid = '%s' and date = '%s'"%(dictionary['groupid'],str(nowtime.tm_year)+'-'\
+                                                                             +str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
+                    n = cursor.execute(sql)
+                    if n < 3:
+                        changeintegral(dictionary['user'],90-n*10,connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        number = cursor.fetchone()[0]
+                        updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                        return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,90-n*10,number)
+                    elif n >= 3:
+                        changeintegral(dictionary['user'],60,connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        number = cursor.fetchone()[0]
+                        updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                        return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,60,number)
+                else:
+                    sql = "select * from sign where groupid = '%s' and date = '%s'"%(dictionary['groupid'],str(nowtime.tm_year)+'-'\
+                                                                             +str(nowtime.tm_mon)+'-'+str(nowtime.tm_mday))
+                    n = cursor.execute(sql)
+                    if n < 3:
+                        changeintegral(dictionary['user'],72-n*8,connection)
+                        changeintegral(result[0],18-n*2,connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        number = cursor.fetchone()[0]
+                        updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                        return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,72-n*8,number)
+                    elif n>=3:
+                        changeintegral(dictionary['user'],48,connection)
+                        changeintegral(result[0],12,connection)
+                        sql = "select integral from sign where id = '%s'"%dictionary['user']
+                        cursor.execute(sql)
+                        number = cursor.fetchone()[0]
+                        updatesigndate(dictionary['user'],dictionary['groupid'],connection)
+                        return "%s签到成功\n你是本群第%i个签到的人且连续签到\n获得积分+%i\n你现在的积分为:%i"%(getat(dictionary['user'],connection),n+1,48,number)
         else:
-            return "[CQ:at,qq=%s]\n你今天已经签到过了，请不要重复签到！"%dictionary['user']
+            return "%s\n你今天已经签到过了，请不要重复签到！"%getat(dictionary['user'],connection)
     except BaseException as e:
         print(e)
         return '不好意思，傻馒出现了一点小问题，请联系维护人员修复'
@@ -716,7 +818,7 @@ def processforslave(dictionary,connection):
                                         return '1'
                     else:
                         sql = "update prop set number = number -1 where id = '%s' and kind = 2"%dictionary['user']
-                        if(0 == cursor.execute()):
+                        if(0 == cursor.execute(sql)):
                             return '0'
                         n,buyneed_integral = slave_buyneedintegral(dictionary['slaveid'],connection)
                         sql = "select integral from sign where id = '%s'"%dictionary['user']
@@ -1094,6 +1196,11 @@ while 1 :
         outcome = processforvalidate(dictionary,connection)
         conn.send(outcome.encode('gbk'))
         print('validate')
+    elif data.find(':administor') != -1:
+        dictionary = getdict(data)
+        outcome = processforAdministor(dictionary,connection)
+        conn.send(outcome.encode('gbk'))
+        print('administor')
     else:
         maxp=0
         n=-1

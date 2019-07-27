@@ -613,9 +613,19 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, connections.sign(fromQQ, fromGroup));
 		return EVENT_BLOCK;
 	}
-	else if ((strstr(msg, "给我一张")!=NULL)&fromQQ == 3047964704)
+	else if (strstr(msg, "给我一张") != NULL)
 	{
+		int rank = connections.get_Administorforgroup(fromQQ, fromGroup);
+		if (rank < 10)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能需要10级以上的傻馒管理权限，你权限不足无法使用！");
+			return EVENT_BLOCK;
+		}
 		strcpy(tips, strstr(msg, "张") + 2);
+		if (atoi(tips) == 0)
+		{
+			return EVENT_BLOCK;
+		}
 		if (connections.changeprop(fromQQ, atoi(tips), 1) == 1)
 			CQ_sendGroupMsg(ac, fromGroup, "添加成功！");
 		else
@@ -624,11 +634,21 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		return EVENT_BLOCK;
 	}
-	else if ((strstr(msg, "奖励") != NULL)&(fromQQ == 3047964704))
+	else if (strstr(msg, "奖励") != NULL)
 	{
+		int rank = connections.get_Administorforgroup(fromQQ, fromGroup);
+		if (rank < 10)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能需要10级以上的傻馒管理权限，你权限不足无法使用！");
+			return EVENT_BLOCK;
+		}
 		memset(targetstrQQID, 0, sizeof(targetstrQQID));
 		strcpy(targetstrQQID, strstr(msg, "励") + 2);
 		targetQQID = atoll(targetstrQQID);
+		if (targetQQID == 0)
+		{
+			return EVENT_BLOCK;
+		}
 		strcpy(tips, strstr(msg, "分") + 2);
 		if (connections.changeintegral(atoll(targetstrQQID), atoi(tips), 0) != 0)
 			CQ_sendGroupMsg(ac, fromGroup, "奖励成功！");
