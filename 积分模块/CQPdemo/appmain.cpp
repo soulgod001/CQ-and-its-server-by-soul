@@ -237,9 +237,14 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 						CQ_sendPrivateMsg(ac, fromQQ, "你输入的玩家不存在!");
 						return EVENT_BLOCK;
 					}
-					if (gameroom[sum].hadvote(fromQQ, atoi(msg) - 1))
+					int n = gameroom[sum].hadvote(fromQQ, atoi(msg) - 1);
+					if (n == 1)
 					{
 						CQ_sendPrivateMsg(ac, fromQQ, "投票成功");
+					}
+					else if (n == -1)
+					{
+						CQ_sendPrivateMsg(ac, fromQQ, "未知错误，你输入的玩家不存在！");
 					}
 					else
 					{
@@ -354,6 +359,25 @@ CQEVENT(int32_t, __eventPrivateMsg, 24)(int32_t subType, int32_t sendTime, int64
 		CQ_sendPrivateMsg(ac, fromQQ, "谢谢大佬的浇水，傻馒一定会在大家的支持下越来越棒的！");
 		return EVENT_BLOCK;
 	}
+	else if (strstr(msg, "充值"))
+	{
+		CQ_sendPrivateMsg(ac, fromQQ, "为了让傻馒能够茁壮成长，傻馒不得不含泪推出充值功能，给我发整数元红包便能获得积分奖励，一元一百分，首冲额外赠送四百分哦！");
+		return EVENT_BLOCK;
+	}
+	else if (!strcmp(msg, "重置房间"))
+	{
+		if (connections.get_Administorforgroup(fromQQ, 0) < 9)
+		{
+			CQ_sendPrivateMsg(ac, fromQQ, "该功能需要九级以上的傻馒管理权限，你无法使用该功能！");
+			return EVENT_BLOCK;
+		}
+		for (sum = 0; sum < 5; sum++)
+		{
+			gameroom[sum].gameover();
+		}
+		CQ_sendPrivateMsg(ac, fromQQ, "游戏房间已重置！");
+		return EVENT_BLOCK;
+	}
 	else
 	{
 		strcpy(sendmsg, connections.ask((char *)msg));
@@ -399,6 +423,12 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		char name[25];
 		int type;
 	}prop;
+	struct grouplist
+	{
+		int64_t groupid = 0;
+		int runstate = 0;//1为启用，-1为停用
+		grouplist *next = NULL;
+	}static group;
 	//static gamelist gameroom;
 	struct tm sysTime1;
 	struct tm sysTime2;
@@ -414,6 +444,108 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	connection connections;//与服务器连接的实例对象
 
 	connections.init(ac);
+	if (!strcmp(msg, "启用"))
+	{
+		if (connections.get_Administorforgroup(fromQQ, fromGroup) > 2)
+		{
+			if (connections.putuse_fromserver(fromGroup, 1))
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "启用成功！");
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "启用失败！");
+			}
+		}
+		else
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能需要二级以上的群管理权限，你不具备该权限，使用失败！");
+		}
+		for (grouplist *p = &group; ; p = p->next)
+		{
+			if (p->groupid = fromGroup)
+			{
+				if (p->runstate == 1)
+				{
+					break;
+				}
+				else
+				{
+					p->runstate = 1;
+					break;
+				}
+			}
+			if (p->next == NULL)
+			{
+				p->next = new grouplist;
+				p->next->groupid = fromGroup;
+				p->next->runstate = connections.getuse_fromserver(fromGroup);
+			}
+		}
+	}
+	else if (!strcmp(msg, "停用"))
+	{
+		if (connections.get_Administorforgroup(fromQQ, fromGroup) > 2)
+		{
+			if (connections.putuse_fromserver(fromGroup, -1))
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "停用成功！");
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "停用失败！");
+			}
+		}
+		else
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能需要二级以上的群管理权限，你不具备该权限，使用失败！");
+		}
+		for (grouplist *p = &group; ; p = p->next)
+		{
+			if (p->groupid == fromGroup)
+			{
+				if (p->runstate == 1)
+				{
+					p->runstate = -1;
+					return EVENT_BLOCK;
+					break;
+				}
+				else
+				{
+					return EVENT_BLOCK;
+				}
+			}
+			if (p->next == NULL)
+			{
+				p->next = new grouplist;
+				p->next->groupid = fromGroup;
+				p->next->runstate = connections.getuse_fromserver(fromGroup);
+			}
+		}
+	}
+	else
+	{
+		for (grouplist *p = &group; ; p = p->next)
+		{
+			if (p->groupid == fromGroup)
+			{
+				if (p->runstate == 1)
+				{
+					break;
+				}
+				else
+				{
+					return EVENT_BLOCK;
+				}
+			}
+			if (p->next == NULL)
+			{
+				p->next = new grouplist;
+				p->next->groupid = fromGroup;
+				p->next->runstate = connections.getuse_fromserver(fromGroup);
+			}
+		}
+	}
 	for (k = 0; k < 10; k++)
 	{
 		if (list.QQID[k] == fromQQ)//取到了QQID的记录
@@ -978,10 +1110,10 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		char askmsg[50];
 		memset(askmsg, 0, sizeof(askmsg));
-		if (strstr(msg, "女装") != NULL)
+		if (strstr(msg, "穿女装") != NULL)
 		{
 			strcpy(askmsg, strstr(msg, "罚") + 2);
-			*(strstr(askmsg, "女")) = '\0';
+			*(strstr(askmsg, "穿")) = '\0';
 		}
 		else if (strstr(msg, "跳舞") != NULL)
 		{
@@ -1044,28 +1176,28 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 		if (master.QQID == fromQQ)
 		{
-			if (strstr(msg, "女装") != NULL)
+			if (strstr(msg, "穿女装") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", targetQQID);
+				sprintf_s(sendmsg, "%s在主人的命令下被迫穿上了女装，满脸娇羞的看着围观的众人。", connections.getat(targetQQID));
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "跳舞") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", targetQQID);
+				sprintf_s(sendmsg, "getat在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", connections.getat(targetQQID));
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "唱歌") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", targetQQID);
+				sprintf_s(sendmsg, "%s在主人的命令下高歌一曲，灵魂歌手一般的歌喉震惊听众，隔壁的邻居都气的跑来敲门啦！", connections.getat(targetQQID));
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "拖地") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "[CQ:at,qq=%lld]在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", targetQQID);
+				sprintf_s(sendmsg, "%s在主人的命令下把房间的地板全部拖了一遍，光洁的地板闪闪发光！", connections.getat(targetQQID));
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else
@@ -1260,6 +1392,20 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			CQ_sendGroupMsg(ac, fromGroup, "确认赠送请输1，取消请输0");
 		}
+	}
+	else if (!strcmp(msg, "重置房间"))
+	{
+		if (connections.get_Administorforgroup(fromQQ, fromGroup) < 9)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能需要九级以上的傻馒管理权限，你无法使用该功能！");
+			return EVENT_BLOCK;
+		}
+		for (sum = 0; sum < 5; sum++)
+		{
+			gameroom[sum].gameover();
+		}
+		CQ_sendGroupMsg(ac, fromGroup, "游戏房间已重置！");
+		return EVENT_BLOCK;
 	}
 	/*else if (!strcmp(msg, "使用保护卡"))
 	{ 
@@ -1933,11 +2079,16 @@ CQEVENT(int32_t, __eventRequest_AddGroup, 32)(int32_t subType, int32_t sendTime,
 			CQ_sendPrivateMsg(ac, 3047964704, sendmsg);
 			CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPINVITE, REQUEST_ALLOW, "");
 			CQ_sendGroupMsg(ac, fromGroup, wulizhiyin);
+			connections.put_Administorforgroup(fromQQ, fromGroup, 2);
+			CQ_sendPrivateMsg(ac, fromQQ, "你获得了该群的2级傻馒群管理员权限！");
+			CQ_sendPrivateMsg(ac, fromQQ, "在群消息中发送菜单，武理知音即可查询傻馒所拥有的各个功能系统，发送各个功能词汇可以查询该功能的具体作用及用法");
+			CQ_sendPrivateMsg(ac, fromQQ, "如果在和傻馒的交互中出现bug，崩溃等现象，请截图聊天记录并向维护人员反馈！");
+			CQ_sendPrivateMsg(ac, fromQQ, "维护人员的联系方法可通过在群消息中发送维护反馈来查询！");
 		}
 		else
 		{
 			CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPINVITE, REQUEST_DENY, "");
-			sprintf_s(sendmsg, "groupQQ:%lld邀请我入群拒绝！", fromGroup);
+			sprintf_s(sendmsg, "fromQQ:%lld,groupQQ:%lld邀请我入群拒绝！", fromQQ, fromGroup);
 			CQ_sendPrivateMsg(ac, 3047964704, sendmsg);
 		}
 	}

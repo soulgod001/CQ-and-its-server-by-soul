@@ -22,6 +22,33 @@ def processforsign(dictionary,connection):
     elif dictionary['action'] == 'sign':
         return sign(dictionary,connection)
 
+def processforGroup(dictionary,connection):
+    cursor = connection.cursor()
+    if dictionary['action'] == 'putuse':
+        try:
+            sql = "select * from group_use where id = '%s'"%dictionary['user']
+            if 0 == cursor.execute(sql):
+                sql = "insert into group_use values('%s',%s)"%(dictionary['user'],dictionary['state'])
+            else:
+                sql = "update group_use set state = %s where id = '%s'"%(dictionary['state'],dictionary['user'])
+            cursor.execute(sql)
+            connection.commit()
+            return '1'
+        except BaseException as e:
+            print(e)
+            return '0'
+    else:
+        try:
+            sql = "select state from group_use where id = '%s'"%dictionary['user']
+            if 0 == cursor.execute(sql):
+                sql = "insert into group_use  valuse('%s',%i)"%(dictionary['user'],1)
+                return  '1'
+            else:
+                return cursor.fetchone()[0]
+        except BaseException as e:
+            print(e)
+            return '0'
+
 def processforAdministor(dictionary,connection):
     cursor = connection.cursor()
     if dictionary['action'] == 'put':
@@ -272,8 +299,19 @@ def changeintegral(QQID,change,connection):
         print(e)
         return '0'
 
-def getdinting(id,connection):
+def getdinting(connection):
     cursor = connection.cursor()
+    sql = "select * from dinting where number = 0"
+    n == cursor.execute(sql)
+    if(0 == n):
+        sql = "update dinting set number = 0 where id != '0'"
+        if(0 == cursor.execute(sql)):
+            return '0'
+        sql = "select * from dinting where number = 0"
+        n = cursor.execute(sql)
+        if(0 == n):
+            return '0'
+    id = str(random.randint(1,n))
     sql = "select * from dinting where id = %s"%id
     try:
         if(0 == cursor.execute(sql)):
@@ -1181,8 +1219,7 @@ while 1 :
         conn.send(outcome.encode('gbk'))
         print(outcome)
     elif data.find(':game') != -1:
-        a=data.split()
-        outcome=getdinting(a[2].split(':')[1],connection)
+        outcome=getdinting(connection)
         conn.send(outcome.encode('gbk'))
         print('dinting')
     elif data.find(':sign') != -1:
@@ -1205,6 +1242,11 @@ while 1 :
         outcome = processforAdministor(dictionary,connection)
         conn.send(outcome.encode('gbk'))
         print('administor')
+    elif data.find(':group') != -1:
+        dictionary = getdict(data)
+        outcome = processforGroup(dictionary,connection)
+        conn.send(outcome.encode('gbk'))
+        print('group')
     else:
         maxp=0
         n=-1

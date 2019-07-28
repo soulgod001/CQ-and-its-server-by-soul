@@ -58,6 +58,8 @@ public:
 	char *buycheck(int64_t masterID, int64_t slaveID);
 	bool put_Administorforgroup(int64_t QQID, int64_t GroupID, int grade);
 	int get_Administorforgroup(int64_t QQID, int64_t GroupID);
+	int getuse_fromserver(int64_t GroupID);
+	int putuse_fromserver(int64_t GroupID,int state);
 	char *sign(int64_t QQID, int64_t groupid);
 	int changeintegral(int64_t QQID, int number,int type);
 	int getintegral(int64_t QQID,QDdata *sign);
@@ -349,6 +351,34 @@ int connection::get_Administorforgroup(int64_t QQID, int64_t GroupID)
 	char *recData;
 	memset(sendmsg, 0, sizeof(sendmsg));
 	sprintf_s(sendmsg, "user:%lld\ntype:administor\naction:get\ngroupid:%lld\nsendby:soul", QQID, GroupID);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//
+int connection::getuse_fromserver(int64_t GroupID)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:group\naction:getuse\nsendby:soul", GroupID);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//
+int connection::putuse_fromserver(int64_t GroupID,int state)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:group\naction:putuse\nstate:%i\nsendby:soul", GroupID,state);
 	recData = ask(sendmsg);
 	if (recData == NULL)
 	{
@@ -822,7 +852,7 @@ int  game::check(int type, int32_t ac)
 	int x = 0;
 	char msg[200];
 	max = 0;
-	if (type)
+	if (type)                
 	{
 		while (p != NULL)
 		{
@@ -1032,6 +1062,7 @@ int  game::check(int type, int32_t ac)
 		}
 		else
 		{
+			starttimer();
 			p = head;
 			t = 0;
 			if (number <= 2)
@@ -1089,7 +1120,6 @@ int  game::check(int type, int32_t ac)
 			}
 			rank = 0;
 			max = 0;
-			starttimer();
 			return 1;
 		}
 	}
@@ -1200,6 +1230,10 @@ int game::hadvote(int64_t voterID, int n)
 	while (t < n)
 	{
 		p = p->next;
+		if (p == NULL)
+		{
+			return -1;
+		}
 		t++;
 	}
 	p->poll++;
