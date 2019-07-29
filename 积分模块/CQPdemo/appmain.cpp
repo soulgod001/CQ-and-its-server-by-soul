@@ -29,6 +29,9 @@ using namespace std;
 #define sorryforweather "您已取订武理知音天气预报，是傻馒哪里做的不好吗?可以向qq:3047964704反馈或者在我的说说下面评论哦！"
 #define Error "傻馒出了点小问题，请联系维护人员解决！"
 #define wulizhiyin "大家好，这里是武理知音广播电台，我是主持人wuli傻馒，该电台由武理ai社(486712165)承办。\n目前功能有:\n天气预报\n邀请入群\n维护反馈\n菜单\n武理知音\n发送功能关键词了解更多哦(欢迎将我邀请进更多qq群)！"
+#define meneu_tips "目前的功能有:\n谁是卧底\n好友买卖系统\n签到抽奖系统\n道具系统\n群管理系统\n充值\n武理知音\n输入这些词询问我相关内容"
+#define friend_trade_tips "好友买卖系统中有购买，赎回，查看，查询，流放,惩罚等功能，输入这些词询问我相关内容。"
+#define prop_tips "目前只能通过抽奖来获取道具，强制购买卡可以用于购买处于保护期中的玩家，赠送卡可以用于赠送别人积分，保护卡可以让自己进入保护期(在购买时被动使用)\n发送使用取名卡可以取名。发送:\n出售\n兑换可以了解更多功能！"
 int ac = -1; //AuthCode 调用酷Q的方法时需要用到
 bool enabled = false;
 //static makeroom room[5];
@@ -436,7 +439,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	int k = 0, number = 0, i = 0, price = 0, n = 0;//k、i、n为循环数
 	int sum = 0, x = 0, y = 0, len = 0;
 	int t = 0;
-	static int shutup = 0;
+	static Idioms Idiom;
 	CQTool fromQQclass;
 	CQ_Type_GroupMember fromQQinfo;
 	CQ_Type_GroupMember targetQQinfo;
@@ -446,7 +449,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	connections.init(ac);
 	if (!strcmp(msg, "启用"))
 	{
-		if (connections.get_Administorforgroup(fromQQ, fromGroup) > 2)
+		if (connections.get_Administorforgroup(fromQQ, fromGroup) >= 2)
 		{
 			if (connections.putuse_fromserver(fromGroup, 1))
 			{
@@ -460,20 +463,14 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		else
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "该功能需要二级以上的群管理权限，你不具备该权限，使用失败！");
+			return EVENT_BLOCK;
 		}
 		for (grouplist *p = &group; ; p = p->next)
 		{
-			if (p->groupid = fromGroup)
+			if (p->groupid == fromGroup)
 			{
-				if (p->runstate == 1)
-				{
-					break;
-				}
-				else
-				{
-					p->runstate = 1;
-					break;
-				}
+				p->runstate = 1;
+				break;
 			}
 			if (p->next == NULL)
 			{
@@ -485,7 +482,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (!strcmp(msg, "停用"))
 	{
-		if (connections.get_Administorforgroup(fromQQ, fromGroup) > 2)
+		if (connections.get_Administorforgroup(fromQQ, fromGroup) >= 2)
 		{
 			if (connections.putuse_fromserver(fromGroup, -1))
 			{
@@ -499,21 +496,14 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		else
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "该功能需要二级以上的群管理权限，你不具备该权限，使用失败！");
+			return EVENT_BLOCK;
 		}
 		for (grouplist *p = &group; ; p = p->next)
 		{
 			if (p->groupid == fromGroup)
 			{
-				if (p->runstate == 1)
-				{
-					p->runstate = -1;
-					return EVENT_BLOCK;
-					break;
-				}
-				else
-				{
-					return EVENT_BLOCK;
-				}
+				p->runstate = -1;
+				return EVENT_BLOCK;
 			}
 			if (p->next == NULL)
 			{
@@ -849,7 +839,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	{
 		CQ_sendGroupMsg(ac, fromGroup, wulizhiyin);
 	}
-	else if (strstr(msg, "购买") != NULL)
+	else if (strstr(msg, "购买") == msg)
 	{
 		int64_t n;
 		if (!strcmp(msg, "购买"))
@@ -951,7 +941,8 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	{
 		connections.getintegral(fromQQ, &data);
 		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf_s(sendmsg, "你现在的积分为：%i", data.integral);
+		int n = connections.get_Administorforgroup(fromQQ, fromGroup);
+		sprintf_s(sendmsg, "你现在的积分为：%i\n具有的群管理权限为：%i", data.integral, n);
 		CQ_sendGroupMsg(ac,fromGroup,sendmsg);
 		CQ_sendGroupMsg(ac, fromGroup, connections.listprop(fromQQ));
 		return EVENT_BLOCK;
@@ -1103,7 +1094,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			CQ_sendGroupMsg(ac, fromGroup, "请输入你要惩罚的好友qq以及操作,例如：惩罚xxxxxxxxxxx跳舞，可以问我惩罚有哪些哦！");//假装这是第一步
 			return EVENT_BLOCK;
 		}
-		if (strstr(msg, "有") != NULL)
+		if (strstr(msg, "惩罚") != NULL && strstr(msg, "有") != NULL)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "目前只有跳舞、唱歌、拖地和穿女装哦！");
 			return EVENT_BLOCK;
@@ -1185,7 +1176,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 			else if (strstr(msg, "跳舞") != NULL)
 			{
 				memset(sendmsg, 0, sizeof(sendmsg));
-				sprintf_s(sendmsg, "getat在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", connections.getat(targetQQID));
+				sprintf_s(sendmsg, "%s在主人的命令下短短的跳了一支舞，真是惊艳了众人，如果鞋子没掉的话那就更好了。", connections.getat(targetQQID));
 				CQ_sendGroupMsg(ac, fromGroup, sendmsg);
 			}
 			else if (strstr(msg, "唱歌") != NULL)
@@ -1407,39 +1398,6 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, "游戏房间已重置！");
 		return EVENT_BLOCK;
 	}
-	/*else if (!strcmp(msg, "使用保护卡"))
-	{ 
-		i = connections.changeprop(fromQQ, 3, 0);
-		if (i == 1)
-		{
-			if (connections.getmaster(&master, fromQQ) == 0)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				CQ_addLog(ac, CQLOG_ERROR, "道具使用", "保护卡已消耗！");
-				return EVENT_BLOCK;
-			}
-			time(&master.Time);
-			if (connections.buyslave(fromQQ, master.QQID, master.ransom, master.Time) == 0)
-			{
-				CQ_sendGroupMsg(ac, fromGroup, Error);
-				CQ_addLog(ac, CQLOG_ERROR, "道具使用", "保护卡已消耗！");
-				return EVENT_BLOCK;
-			}
-			memset(sendmsg, 0, sizeof(sendmsg));
-			sprintf_s(sendmsg, "[CQ:at,qq=%lld]使用保护卡成功!", fromQQ);
-			CQ_sendGroupMsg(ac, fromGroup, sendmsg);
-		}
-		else if (i == 0)
-		{
-			CQ_sendGroupMsg(ac, fromGroup, Error);
-			return EVENT_BLOCK;
-		}
-		else if (i == -1)
-		{
-			CQ_sendGroupMsg(ac, fromGroup, "你没有保护卡，快去商店兑换一张保护卡吧！");
-			return EVENT_BLOCK;
-		}
-	}*/
 	else if (!strcmp(msg, "使用取名卡"))
 	{
 		i = connections.changeprop(fromQQ, 5, 2);
@@ -1460,6 +1418,65 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		else if (i == -1)
 		{
 			CQ_sendGroupMsg(ac, fromGroup, "你没有取名卡，快去商店兑换一张取名卡吧！");
+			return EVENT_BLOCK;
+		}
+	}
+	else if (strstr(msg, "出售") == msg)
+	{
+		if (!strcmp(msg, "出售"))
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能可以出售以30的价格出售自己拥有的卡牌\n格式为：出售赠送卡\n出售n张赠送卡\n出售n个赠送卡！");
+		}
+		if (strstr(msg, "张") != NULL)
+		{
+			n = atoi(strstr(msg, "售") + 2);
+			if (n == 0)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售的卡牌数不能为0！");
+				return EVENT_BLOCK;
+			}
+			if (connections.saleprop(fromQQ, n, (char*)strstr(msg, "张") + 2) == 1)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售成功！");
+				return EVENT_BLOCK;
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售失败！");
+				return EVENT_BLOCK;
+			}
+		}
+		else if (strstr(msg, "个") != NULL)
+		{
+			n = atoi(strstr(msg, "售") + 2);
+			if (n == 0)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售的卡牌数不能为0！");
+				return EVENT_BLOCK;
+			}
+			if (connections.saleprop(fromQQ, n, (char*)strstr(msg, "个") + 2) == 1)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售成功！");
+				return EVENT_BLOCK;
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "出售失败！");
+				return EVENT_BLOCK;
+			}
+		}
+		else
+		{
+			n = 1;
+		}
+		if (connections.saleprop(fromQQ, n, (char*)strstr(msg, "售") + 2) == 1)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "出售成功！");
+			return EVENT_BLOCK;
+		}
+		else
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "出售失败！");
 			return EVENT_BLOCK;
 		}
 	}
@@ -1679,9 +1696,33 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, "输入:寻找房间即可查看房间列表。");
 		return EVENT_BLOCK;
 	}
+	else if (strstr(msg, "成语接龙"))
+	{
+		if (!strcmp(msg, "成语接龙"))
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "输入开始成语接龙即可开始！");
+		}
+		else if (!strcmp(msg, "开始成语接龙"))
+		{
+			for (Idioms *p = &Idiom; p != NULL; p = p->next)
+			{
+				if (p->GroupID == fromGroup)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "本群的成语接龙已经开始，请不要重复开始！");
+					return EVENT_BLOCK;
+				}
+				else if (p->GroupID == 0)
+				{
+					p->startgame(fromGroup, ac);
+					return EVENT_BLOCK;
+				}
+			}
+			CQ_sendGroupMsg(ac, fromGroup, "抱歉，出现了未知错误，请联系维护人员维护！");
+		}
+	}
 	else if (!strcmp(msg, "菜单") || !strcmp(msg,"功能"))
 	{
-		CQ_sendGroupMsg(ac, fromGroup, "目前的功能有:\n谁是卧底\n好友买卖系统\n签到抽奖系统\n道具系统\n充值\n武理知音\n输入这些词询问我相关内容");
+		CQ_sendGroupMsg(ac, fromGroup, meneu_tips);
 		return EVENT_BLOCK;
 	}
 	else if (!strcmp(msg, "充值"))
@@ -1691,7 +1732,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (strstr(msg, "好友买卖系统") != NULL)
 	{
-		CQ_sendGroupMsg(ac, fromGroup, "好友买卖系统中有购买，赎回，查看，查询，流放,惩罚等功能，输入这些词询问我相关内容。");
+		CQ_sendGroupMsg(ac, fromGroup, friend_trade_tips);
 		return EVENT_BLOCK;
 	}
 	else if (strstr(msg, "签到抽奖系统") != NULL)
@@ -1701,7 +1742,7 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 	}
 	else if (strstr(msg, "道具系统") != NULL)
 	{
-		CQ_sendGroupMsg(ac, fromGroup, "目前只能通过抽奖来获取道具，强制购买卡可以用于购买处于保护期中的玩家，赠送卡可以用于赠送别人积分，保护卡可以让自己进入保护期(在购买时被动使用)\n发送使用取名卡可以取名。查询可以知道自己有哪些道具！");
+		CQ_sendGroupMsg(ac, fromGroup, prop_tips);
 		return EVENT_BLOCK;
 	}
 /*else if ((strstr(msg, "猜码图") != NULL)&(strstr(msg, "1839538956") != NULL))
@@ -1887,26 +1928,104 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		CQ_sendGroupMsg(ac, fromGroup, connections.ask("user:1839538956\ntype:prop\naction:shop\nsendby:soul"));
 		return EVENT_BLOCK;
 	}
-	else if (!strcmp(msg, "兑换"))
+	else if (strstr(msg, "兑换") == msg)
 	{
-		CQ_sendGroupMsg(ac, fromGroup, "发送兑换xx卡即可使用积分兑换道具哦！");
-		return EVENT_BLOCK;
+		if (!strcmp(msg, "兑换"))
+		{
+			CQ_sendGroupMsg(ac, fromGroup, "该功能可以消耗积分在商店兑换卡片！格式为：兑换赠送卡\n兑换n张赠送卡\n兑换n个赠送卡！");
+			return EVENT_BLOCK;
+		}
+		if (strstr(msg, "张") != NULL)
+		{
+			n = atoi(strstr(msg, "换") + 2);
+			if (n == 0)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "兑换的卡牌数不能为0！");
+				return EVENT_BLOCK;
+			}
+			char *recData = connections.exchangeprop(fromQQ, n, (char*)strstr(msg, "张") + 2);
+			if (recData == NULL)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, Error);
+				return EVENT_BLOCK;
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, recData);
+				return EVENT_BLOCK;
+			}
+		}
+		else if (strstr(msg, "个") != NULL)
+		{
+			n = atoi(strstr(msg, "换") + 2);
+			if (n == 0)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, "兑换的卡牌数不能为0！");
+				return EVENT_BLOCK;
+			}
+			char *recData = connections.exchangeprop(fromQQ, n, (char*)strstr(msg, "个") + 2);
+			if (recData == NULL)
+			{
+				CQ_sendGroupMsg(ac, fromGroup, Error);
+				return EVENT_BLOCK;
+			}
+			else
+			{
+				CQ_sendGroupMsg(ac, fromGroup, recData);
+				return EVENT_BLOCK;
+			}
+		}
+		else
+		{
+			n = 1;
+		}
+		char *recData = connections.exchangeprop(fromQQ, n, (char*)strstr(msg, "换") + 2);
+		if (recData == NULL)
+		{
+			CQ_sendGroupMsg(ac, fromGroup, Error);
+			return EVENT_BLOCK;
+		}
+		else
+		{
+			CQ_sendGroupMsg(ac, fromGroup, recData);
+			return EVENT_BLOCK;
+		}
 	}
-	else if (strstr(msg, "兑换") != NULL)
+	if (strlen(msg) == 8)
 	{
-		memset(sendmsg, 0, sizeof(sendmsg));
-		sprintf_s(sendmsg, "user:%lld\ntype:prop\naction:exchange\nname:%s\nsendby:soul", fromQQ, strstr(msg, "换") + 2);
-		CQ_sendGroupMsg(ac, fromGroup, connections.ask(sendmsg));
-		return EVENT_BLOCK;
+		for (Idioms *p = &Idiom; p != NULL; p = p->next)
+		{
+			if (p->GroupID == fromGroup)
+			{
+				int n = p->checkidiom((char*)msg, fromQQ);
+				if (n == -1)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "请不要输入之前出现过的词汇！");
+					return EVENT_BLOCK;
+				}
+				else if (n == 0)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "你输入的词汇头与之前词汇尾并非同音！");
+					return EVENT_BLOCK;
+				}
+				else if (n == -2)
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "你输入的词汇并非成语！");
+					return EVENT_BLOCK;
+				}
+				else
+				{
+					CQ_sendGroupMsg(ac, fromGroup, "回答正确，已确认，请继续！");
+					return EVENT_BLOCK;
+				}
+			}
+		}
 	}
-	for (len = 0; len < strlen(msg); len++)
-	{
-		if (msg[len] < 47 | msg[len] > 58)
-			goto aim;
-	}
-	if (atoi(msg) == 0)
-		goto aim;
 	//谁是卧底
+	if (atoi(msg) == 0)
+	{
+		return EVENT_BLOCK;
+	}
 	for (sum = 0; sum < 5; sum++)
 	{
 		if (gameroom[sum].roomid == atoi(msg))
@@ -1946,40 +2065,6 @@ CQEVENT(int32_t, __eventGroupMsg, 36)(int32_t subType, int32_t sendTime, int64_t
 		}
 	}
 
-aim:
-
-	if (strstr(msg, "傻馒") != NULL)
-	{
-		if (strstr(msg, "闭嘴") != NULL)
-		{
-			shutup = 1;
-			return EVENT_BLOCK;
-		}
-		else if (strstr(msg, "出来") != NULL)
-		{
-			shutup = 0;
-			return EVENT_IGNORE;
-		}
-		if (shutup == 1)
-		{
-			return EVENT_BLOCK;
-		}
-		else
-		{
-			return EVENT_IGNORE;
-		}
-	}
-	else if ((strstr(msg, "at") != NULL) & (strstr(msg, "1839538956") != NULL))
-	{
-		if (shutup == 1)
-		{
-			return EVENT_BLOCK;
-		}
-		else
-		{
-			return EVENT_IGNORE;
-		}
-	}
 	return EVENT_BLOCK;
 }
 
@@ -2064,9 +2149,14 @@ CQEVENT(int32_t, __eventRequest_AddGroup, 32)(int32_t subType, int32_t sendTime,
 	//} else if (subType == 2) {
 	//	CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPINVITE, REQUEST_DENY, "");
 	//}
+	connections.init(ac);
 	if (subType == 1)
 	{
-		CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPADD, REQUEST_ALLOW, "");
+		//CQ_setGroupAddRequestV2(ac, responseFlag, REQUEST_GROUPADD, REQUEST_ALLOW, "");
+		memset(sendmsg, 0, sizeof(sendmsg));
+		sprintf_s(sendmsg, "[CQ:at,qq=%lld]\n欢迎新人，我是傻馒机器人，发送菜单就可以了解我的更多功能哦！");
+		CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+		return EVENT_BLOCK;
 	}
 	else if (subType == 2)
 	{

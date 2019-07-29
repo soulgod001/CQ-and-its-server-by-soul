@@ -52,3 +52,6 @@ def processforcard(dictionary,connection):
         except BaseException as e:
             print(e)
             return '因为未知原因你的解绑申请上传失败了，请联系维护人员重试!'
+
+
+            

@@ -6,6 +6,53 @@ import numpy
 import processfor
 import random
 
+def confirm_idiom_from_baidu(dictionary,connection):
+    import re
+    from bs4 import BeautifulSoup as bs
+    import requests
+
+    url = "https://baike.baidu.com/item/%s"%dictionary['content']
+    HEADERS ={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 ''(KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+    html = requests.get(url,headers = HEADERS)
+    html.encoding='utf-8'
+    soup=bs(html.text,'lxml')
+    taglist = soup.find_all('span',class_='taglist')
+    for i in taglist:
+        if "成语" in i.text:
+            cursor = connection.cursor()
+            sql = "insert into idiom(id,content) values(null,'%s')"%dictionary['content']
+            cursor.execute(sql)
+            return '1'
+    return '0'
+
+def processforidiom(dictionary,connection):
+    cursor = connection.cursor()
+    if dictionary['action'] == 'confirm':
+        sql = "select * from idiom where content = '%s'"%dictionary['content']
+        try:
+            if 0 == cursor.execute(sql):
+                print(1)
+                return confirm_idiom_from_baidu(dictionary,connection)
+            else:
+                print(2)
+                return '1'
+        except BaseException as e:
+            print(3)
+            print(e)
+            return '0'
+    if dictionary['action'] == 'get':
+        import random
+        sql = "select * from idiom"
+        n = cursor.execute(sql)
+        if 0 == n:
+            return '0'
+        n = random.randint(1,n)
+        sql = "select content from idiom where id = %i"%n
+        if 0 == cursor.execute(sql):
+            return '0'
+        return cursor.fetchone()[0]
+
 def getyday(day):
     if day == '0':
         return 0
@@ -44,7 +91,7 @@ def processforGroup(dictionary,connection):
                 sql = "insert into group_use  valuse('%s',%i)"%(dictionary['user'],1)
                 return  '1'
             else:
-                return cursor.fetchone()[0]
+                return str(cursor.fetchone()[0])
         except BaseException as e:
             print(e)
             return '0'
@@ -1154,25 +1201,50 @@ def processforprop(dictionary,connection):
                     [kind,number] = cursor.fetchone()
                     if number <= 0 :
                         return '虽然傻馒知道你很想要，但是这张卡不能从商店兑换哦！'
-                    elif number > integral:
+                    elif number*int(dictionary['number']) > integral:
                         return '虽然傻馒很想赚你的小钱钱，但是你的积分好像不够呢！'
+                    if('0' == changeintegral(dictionary['user'],-number*int(dictionary['number']),connection)):
+                        return '支付积分因未知原因出错，请联系维护人员进行处理'
+                    sql = "select * from prop where id = '%s' and kind = %i"%(dictionary['user'],kind)
+                    if (0 == cursor.execute(sql)):
+                        sql = "insert into prop(id,kind,number,name) values('%s',%i,%i,'%s')"%(dictionary['user'],kind,int(dictionary['number']),dictionary['name'])
                     else:
-                        if('0' == changeintegral(dictionary['user'],-number,connection)):
-                            return '支付积分因未知原因出错，请联系维护人员进行处理'
-                        else:
-                            dictionary['action'] = 'add'
-                            dictionary['rank'] = str(kind)
-                            if('0' == processforprop(dictionary,connection)):
-                                if('0' == changeintegral(dictionary['user'],number,connection)):
-                                    return '补偿积分因未知原因出错，请联系维护人员进行处理'
-                                else:
-                                    return '邮寄的道具在路上失踪了呢，真是不好意思，积分已保留。'
-                            else:
-                                return '道具已添加，欢迎下次再来哦！'
+                        sql = "update prop set number = number + %i where id = '%s' and kind = %i"%(int(dictionary['number']),dictionary['user'],kind)
+                    if 0 == cursor.execute(sql):
+                        return '数据库因未知原因出错，请检查损失截图并联系维护人员进行处理。'
+                    else:
+                        return '兑换成功，欢迎再来哦！'       
         except BaseException as e:
             print(e)
-            return '数据库因未知原因出错，请检查损失截图并联系维护人员进行处理。'
-                
+            return '0'
+    elif dictionary['action'] == 'sale':
+        sql = 'select kind from prop where id = "0" and name = "%s"'%dictionary['name']
+        try:
+            if(0 == cursor.execute(sql)):
+                return '0'
+            kind = cursor.fetchone()[0]
+            sql = "select number from prop where id = '%s' and kind ='%i'"%(dictionary['user'],kind)
+            if 0 == cursor.execute(sql):
+                return '0'
+            number = cursor.fetchone()[0]
+            if number < int(dictionary['number']):
+                return '0'
+            elif number == int(dictionary['number']):
+                sql = "delete from prop where id = '%s' and kind = '%i'"%(dictionary['user'],kind)
+            else:
+                sql = "update prop set number = number - %s where id = '%s' and kind = %i"%(dictionary['number'],dictionary['user'],kind)
+            if 0 == cursor.execute(sql):
+                return '0'
+            sql = "update sign set integral = integral + %i where id = '%s'"%(int(dictionary['number'])*30,dictionary['user'])
+            if 0 == cursor.execute(sql):
+                return '0'
+            connection.commit()
+            return '1'
+        except BaseException as e:
+            print(e)
+            return '0'
+    return '0'
+
 HOST='127.0.0.1'
 PORT=8000
 s=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
@@ -1247,6 +1319,11 @@ while 1 :
         outcome = processforGroup(dictionary,connection)
         conn.send(outcome.encode('gbk'))
         print('group')
+    elif data.find(':idiom') != -1:
+        dictionary = getdict(data)
+        outcome = processforidiom(dictionary,connection)
+        conn.send(outcome.encode('gbk'))
+        print('idiom')
     else:
         maxp=0
         n=-1

@@ -16,11 +16,7 @@
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib, "Winmm.lib")
 using namespace std;
-int Detection(const char *msg);//检测
-int Identify(const char *msg);
-char *strcattxt(char *a, char *b);
-char *strcatdat(char *a, char *b);
-char *newstrcat(char *a, char *b);
+int ChineseConvert(const std::string& one_chinese, std::string& two_chinese, int type);
 
 //结构体存储master信息
 struct masterlist
@@ -47,6 +43,8 @@ public:
 	bool init(int ac);
 	int changeprop(int64_t QQID, int rank, int ype);
 	char *listprop(int64_t QQID);
+	int saleprop(int64_t QQID, int n, char *name);
+	char *exchangeprop(int64_t QQID, int n, char *name);
 	char *raffle(int64_t QQID);
 	int getmaster(masterlist *master, int64_t QQID);
 	char *listslave( int64_t QQID); //mark 将返回数据列表改为直接返回可发送的消息，发送消息格式为QQID（name）（近日签到状态）
@@ -516,7 +514,34 @@ char * connection::listprop(int64_t QQID)
 	sprintf_s(sendmsg, "user:%lld\ntype:prop\naction:list\nsendby:soul",QQID);
 	return ask(sendmsg);
 }
-
+//
+int connection::saleprop(int64_t QQID, int n, char *name)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:prop\naction:sale\nnumber:%i\nname:%s\nsendby:soul", QQID, n, name);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return atoi(recData);
+}
+//
+char *connection::exchangeprop(int64_t QQID, int n, char *name)
+{
+	char sendmsg[200];
+	char *recData;
+	memset(sendmsg, 0, sizeof(sendmsg));
+	sprintf_s(sendmsg, "user:%lld\ntype:prop\naction:exchange\nnumber:%i\nname:%s\nsendby:soul", QQID, n, name);
+	recData = ask(sendmsg);
+	if (recData == NULL)
+	{
+		return 0;
+	}
+	return recData;
+}
 //为指定的qq进行一次抽奖，返回抽奖结果，抽奖失败返回NULL
 char *connection::raffle(int64_t QQID)
 {
@@ -1775,6 +1800,339 @@ int werewolf::RunRoom(int64_t QQID)
 			state = 1;
 		}
 		p = p->next;
+	}
+	return 0;
+}
+
+class Idioms 
+{
+public:
+	connection connections;
+	int64_t GroupID;
+	struct idiomdata
+	{
+		char content[10] = "\0";
+		idiomdata *next = NULL;
+	}idiom;
+	struct memberdata
+	{
+		int64_t QQID = 0;
+		int number = 0;
+		memberdata *next = NULL;
+	}member;
+	bool killtimer();
+	void WINAPI onTime();
+	bool starttimer();
+	bool startgame(int64_t fromGroup, int32_t ac);
+	int checkidiom(char *content, int64_t fromQQ);
+	Idioms * next = NULL;
+private:
+	idiomdata * now = &idiom;
+	int32_t AuthCode;
+	MMRESULT timer_id = NULL;
+};
+bool Idioms::killtimer()
+{
+	if (timer_id != NULL)
+	{
+		timeKillEvent(timer_id);
+		CQ_addLog(AuthCode, CQLOG_DEBUG, "成语接龙", "killtimer");
+	}
+	return TRUE;
+}
+void WINAPI onTime2(UINT wTimerID, UINT msg, DWORD dwUser, DWORD dwl, DWORD dw2)
+{
+	((Idioms*)dwUser)->onTime();
+}
+bool Idioms::starttimer()
+{
+	if (timer_id != NULL)
+	{
+		if (!killtimer())
+			return 0;
+	}
+	timer_id = timeSetEvent(30000, 1, (LPTIMECALLBACK)onTime2, DWORD(this), TIME_PERIODIC);
+	if (timer_id == NULL)
+	{
+		CQ_addLog(AuthCode, CQLOG_DEBUG, "成语接龙", "can't set timer");
+		return FALSE;
+	}
+	else
+		CQ_addLog(AuthCode, CQLOG_DEBUG, "成语接龙", "start timer");
+	return TRUE;
+}
+
+void WINAPI Idioms::onTime()
+{
+	int64_t list[3];
+	int number[3] = { 0,0,0 };
+	char sendmsg[200];
+	for (memberdata *p = &member; p != NULL; p = p->next)
+	{
+		if (p->number > number[0])
+		{
+			number[2] = number[1];
+			list[2] = list[1];
+			number[1] = number[0];
+			list[1] = list[0];
+			number[0] = p->number;
+			list[0] = p->QQID;
+			continue;
+		}
+		if (p->number > number[1])
+		{
+			number[2] = number[1];
+			list[2] = list[1];
+			number[1] = p->number;
+			list[1] = p->QQID;
+			continue;
+		}
+		if (p->number > number[2])
+		{
+			number[2] = p->number;
+			list[2] = p->QQID;
+		}
+	}
+	memset(sendmsg, 0, sizeof(sendmsg));
+	if (number[2] == 0)
+	{
+		if (number[0] == 0)
+		{
+			CQ_sendGroupMsg(AuthCode, GroupID, "时间到，本次成语接龙结束了！哎，这么大的一个群居然一个能答的都没有！");
+			killtimer();
+			GroupID = 0;
+			return;
+		}
+		CQ_sendGroupMsg(AuthCode, GroupID, "时间到，本次成语接龙结束了！参与游戏的人数少于三人，不显示本次游戏排名！");
+		killtimer();
+		GroupID = 0;
+		return;
+	}
+	sprintf_s(sendmsg, "由于超时，本次成语接龙结束了！\n本次的前三名及回答数是:\n%s--%i\n%s--%i\n%s--%i", connections.getat(list[0]), number[0], connections.getat(list[1]), number[1], connections.getat(list[2]), number[2]);
+	CQ_sendGroupMsg(AuthCode, GroupID, sendmsg);
+	killtimer();
+	GroupID = 0;
+	return;
+}
+//
+bool Idioms::startgame(int64_t fromGroup, int32_t ac)
+{
+	connections.init(ac);
+	char sendmsg[200];
+	sprintf_s(sendmsg, "user:%lld\ntype:idiom\naction:get\nsendby:soul", fromGroup);
+	char *recData = connections.ask(sendmsg);
+	if (recData == NULL)
+	{
+		CQ_sendGroupMsg(ac, fromGroup, "成语接龙功能出现未知错误，请联系维护人员处理！");
+		return 0;
+	}
+	else
+	{
+		GroupID = fromGroup;
+		AuthCode = ac;
+		strcpy(idiom.content, recData);
+		memset(sendmsg, 0, sizeof(sendmsg));
+		sprintf_s(sendmsg, "游戏开始了，抽中的第一个成语为：%s\n请在半分钟内回复且不要重复！", recData);
+		CQ_sendGroupMsg(ac, fromGroup, sendmsg);
+		starttimer();
+		if (next == NULL)
+		{
+			next = new Idioms;
+		}
+		return 1;
+	}
+}
+//
+int Idioms::checkidiom(char *content, int64_t fromQQ)
+{
+	std::string first = "";
+	std::string second = "";
+	ChineseConvert(now->content, first, 1);
+	ChineseConvert(content, second, 0);
+	if (first == second)
+	{
+		for (idiomdata *p = &idiom;; p = p->next)
+		{
+			if (!strcmp(p->content, content))
+			{
+				return -1;
+			}
+			if (p == now)
+			{
+				break;
+			}
+		}
+		char sendmsg[200];
+		memset(sendmsg, 0, sizeof(sendmsg));
+		sprintf_s(sendmsg, "user:%lld\ntype:idiom\naction:confirm\ncontent:%s\nsendby:soul", fromQQ, content);
+		char *recData = connections.ask(sendmsg);
+		if (recData == NULL)
+		{
+			return -2;
+		}
+		else
+		{
+			if (atoi(recData) == 1)
+			{
+			}
+			else
+			{
+				return -2;
+			}
+		}
+		now->next = new idiomdata;
+		strcpy(now->next->content, content);
+		now = now->next;
+		connections.changeintegral(fromQQ, 5, 0);
+		for (memberdata *p = &member;; p = p->next)
+		{
+			if (p->QQID == fromQQ)
+			{
+				p->number++;
+				starttimer();
+				return 1;
+			}
+			else if (p->QQID == 0)
+			{
+				p->QQID = fromQQ;
+				p->number++;
+				p->next = new memberdata;
+				starttimer();
+				return 1;
+			}
+		}
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+int ChineseConvert(const std::string& one_chinese, std::string& two_chinese, int type) {
+	const int spell_value[] = { -20319, -20317, -20304, -20295, -20292, -20283, -20265, -20257, -20242, -20230, -20051, -20036, -20032, -20026,
+		-20002, -19990, -19986, -19982, -19976, -19805, -19784, -19775, -19774, -19763, -19756, -19751, -19746, -19741, -19739, -19728,
+		-19725, -19715, -19540, -19531, -19525, -19515, -19500, -19484, -19479, -19467, -19289, -19288, -19281, -19275, -19270, -19263,
+		-19261, -19249, -19243, -19242, -19238, -19235, -19227, -19224, -19218, -19212, -19038, -19023, -19018, -19006, -19003, -18996,
+		-18977, -18961, -18952, -18783, -18774, -18773, -18763, -18756, -18741, -18735, -18731, -18722, -18710, -18697, -18696, -18526,
+		-18518, -18501, -18490, -18478, -18463, -18448, -18447, -18446, -18239, -18237, -18231, -18220, -18211, -18201, -18184, -18183,
+		-18181, -18012, -17997, -17988, -17970, -17964, -17961, -17950, -17947, -17931, -17928, -17922, -17759, -17752, -17733, -17730,
+		-17721, -17703, -17701, -17697, -17692, -17683, -17676, -17496, -17487, -17482, -17468, -17454, -17433, -17427, -17417, -17202,
+		-17185, -16983, -16970, -16942, -16915, -16733, -16708, -16706, -16689, -16664, -16657, -16647, -16474, -16470, -16465, -16459,
+		-16452, -16448, -16433, -16429, -16427, -16423, -16419, -16412, -16407, -16403, -16401, -16393, -16220, -16216, -16212, -16205,
+		-16202, -16187, -16180, -16171, -16169, -16158, -16155, -15959, -15958, -15944, -15933, -15920, -15915, -15903, -15889, -15878,
+		-15707, -15701, -15681, -15667, -15661, -15659, -15652, -15640, -15631, -15625, -15454, -15448, -15436, -15435, -15419, -15416,
+		-15408, -15394, -15385, -15377, -15375, -15369, -15363, -15362, -15183, -15180, -15165, -15158, -15153, -15150, -15149, -15144,
+		-15143, -15141, -15140, -15139, -15128, -15121, -15119, -15117, -15110, -15109, -14941, -14937, -14933, -14930, -14929, -14928,
+		-14926, -14922, -14921, -14914, -14908, -14902, -14894, -14889, -14882, -14873, -14871, -14857, -14678, -14674, -14670, -14668,
+		-14663, -14654, -14645, -14630, -14594, -14429, -14407, -14399, -14384, -14379, -14368, -14355, -14353, -14345, -14170, -14159,
+		-14151, -14149, -14145, -14140, -14137, -14135, -14125, -14123, -14122, -14112, -14109, -14099, -14097, -14094, -14092, -14090,
+		-14087, -14083, -13917, -13914, -13910, -13907, -13906, -13905, -13896, -13894, -13878, -13870, -13859, -13847, -13831, -13658,
+		-13611, -13601, -13406, -13404, -13400, -13398, -13395, -13391, -13387, -13383, -13367, -13359, -13356, -13343, -13340, -13329,
+		-13326, -13318, -13147, -13138, -13120, -13107, -13096, -13095, -13091, -13076, -13068, -13063, -13060, -12888, -12875, -12871,
+		-12860, -12858, -12852, -12849, -12838, -12831, -12829, -12812, -12802, -12607, -12597, -12594, -12585, -12556, -12359, -12346,
+		-12320, -12300, -12120, -12099, -12089, -12074, -12067, -12058, -12039, -11867, -11861, -11847, -11831, -11798, -11781, -11604,
+		-11589, -11536, -11358, -11340, -11339, -11324, -11303, -11097, -11077, -11067, -11055, -11052, -11045, -11041, -11038, -11024,
+		-11020, -11019, -11018, -11014, -10838, -10832, -10815, -10800, -10790, -10780, -10764, -10587, -10544, -10533, -10519, -10331,
+		-10329, -10328, -10322, -10315, -10309, -10307, -10296, -10281, -10274, -10270, -10262, -10260, -10256, -10254 };
+
+	// 395个字符串，每个字符串长度不超过6  
+	const char spell_dict[396][7] = { "a", "ai", "an", "ang", "ao", "ba", "bai", "ban", "bang", "bao", "bei", "ben", "beng", "bi", "bian", "biao",
+		"bie", "bin", "bing", "bo", "bu", "ca", "cai", "can", "cang", "cao", "ce", "ceng", "cha", "chai", "chan", "chang", "chao", "che", "chen",
+		"cheng", "chi", "chong", "chou", "chu", "chuai", "chuan", "chuang", "chui", "chun", "chuo", "ci", "cong", "cou", "cu", "cuan", "cui",
+		"cun", "cuo", "da", "dai", "dan", "dang", "dao", "de", "deng", "di", "dian", "diao", "die", "ding", "diu", "dong", "dou", "du", "duan",
+		"dui", "dun", "duo", "e", "en", "er", "fa", "fan", "fang", "fei", "fen", "feng", "fo", "fou", "fu", "ga", "gai", "gan", "gang", "gao",
+		"ge", "gei", "gen", "geng", "gong", "gou", "gu", "gua", "guai", "guan", "guang", "gui", "gun", "guo", "ha", "hai", "han", "hang",
+		"hao", "he", "hei", "hen", "heng", "hong", "hou", "hu", "hua", "huai", "huan", "huang", "hui", "hun", "huo", "ji", "jia", "jian",
+		"jiang", "jiao", "jie", "jin", "jing", "jiong", "jiu", "ju", "juan", "jue", "jun", "ka", "kai", "kan", "kang", "kao", "ke", "ken",
+		"keng", "kong", "kou", "ku", "kua", "kuai", "kuan", "kuang", "kui", "kun", "kuo", "la", "lai", "lan", "lang", "lao", "le", "lei",
+		"leng", "li", "lia", "lian", "liang", "liao", "lie", "lin", "ling", "liu", "long", "lou", "lu", "lv", "luan", "lue", "lun", "luo",
+		"ma", "mai", "man", "mang", "mao", "me", "mei", "men", "meng", "mi", "mian", "miao", "mie", "min", "ming", "miu", "mo", "mou", "mu",
+		"na", "nai", "nan", "nang", "nao", "ne", "nei", "nen", "neng", "ni", "nian", "niang", "niao", "nie", "nin", "ning", "niu", "nong",
+		"nu", "nv", "nuan", "nue", "nuo", "o", "ou", "pa", "pai", "pan", "pang", "pao", "pei", "pen", "peng", "pi", "pian", "piao", "pie",
+		"pin", "ping", "po", "pu", "qi", "qia", "qian", "qiang", "qiao", "qie", "qin", "qing", "qiong", "qiu", "qu", "quan", "que", "qun",
+		"ran", "rang", "rao", "re", "ren", "reng", "ri", "rong", "rou", "ru", "ruan", "rui", "run", "ruo", "sa", "sai", "san", "sang",
+		"sao", "se", "sen", "seng", "sha", "shai", "shan", "shang", "shao", "she", "shen", "sheng", "shi", "shou", "shu", "shua",
+		"shuai", "shuan", "shuang", "shui", "shun", "shuo", "si", "song", "sou", "su", "suan", "sui", "sun", "suo", "ta", "tai",
+		"tan", "tang", "tao", "te", "teng", "ti", "tian", "tiao", "tie", "ting", "tong", "tou", "tu", "tuan", "tui", "tun", "tuo",
+		"wa", "wai", "wan", "wang", "wei", "wen", "weng", "wo", "wu", "xi", "xia", "xian", "xiang", "xiao", "xie", "xin", "xing",
+		"xiong", "xiu", "xu", "xuan", "xue", "xun", "ya", "yan", "yang", "yao", "ye", "yi", "yin", "ying", "yo", "yong", "you",
+		"yu", "yuan", "yue", "yun", "za", "zai", "zan", "zang", "zao", "ze", "zei", "zen", "zeng", "zha", "zhai", "zhan", "zhang",
+		"zhao", "zhe", "zhen", "zheng", "zhi", "zhong", "zhou", "zhu", "zhua", "zhuai", "zhuan", "zhuang", "zhui", "zhun", "zhuo",
+		"zi", "zong", "zou", "zu", "zuan", "zui", "zun", "zuo" };
+
+	try {
+		// 循环处理字节数组  
+		if (type == 1)
+		{
+			for (int j = 6, chrasc = 6; j < 8;) {
+				// 非汉字处理  
+				if (one_chinese.at(j) >= 0 && one_chinese.at(j) < 128) {
+					two_chinese += one_chinese.at(j);
+					// 偏移下标  
+					j++;
+					continue;
+				}
+
+				// 汉字处理  
+				chrasc = one_chinese.at(j) * 256 + one_chinese.at(j + 1) + 256;
+				if (chrasc > 0 && chrasc < 160) {
+					// 非汉字  
+					two_chinese += one_chinese.at(j);
+					// 偏移下标  
+					j++;
+				}
+				else {
+					// 汉字  
+					for (int i = (sizeof(spell_value) / sizeof(spell_value[0]) - 1); i >= 0; --i) {
+						// 查找字典  
+						if (spell_value[i] <= chrasc) {
+							two_chinese += spell_dict[i];
+							break;
+						}
+					}
+					// 偏移下标 （汉字双字节）  
+					j += 2;
+				}
+			} // for end  
+		}
+		else
+		{
+			for (int j = 0, chrasc = 0; j < 2;) {
+				// 非汉字处理  
+				if (one_chinese.at(j) >= 0 && one_chinese.at(j) < 128) {
+					two_chinese += one_chinese.at(j);
+					// 偏移下标  
+					j++;
+					continue;
+				}
+
+				// 汉字处理  
+				chrasc = one_chinese.at(j) * 256 + one_chinese.at(j + 1) + 256;
+				if (chrasc > 0 && chrasc < 160) {
+					// 非汉字  
+					two_chinese += one_chinese.at(j);
+					// 偏移下标  
+					j++;
+				}
+				else {
+					// 汉字  
+					for (int i = (sizeof(spell_value) / sizeof(spell_value[0]) - 1); i >= 0; --i) {
+						// 查找字典  
+						if (spell_value[i] <= chrasc) {
+							two_chinese += spell_dict[i];
+							break;
+						}
+					}
+					// 偏移下标 （汉字双字节）  
+					j += 2;
+				}
+			} // for end  
+		}
+
+	}
+	catch (exception _e) {
+		std::cout << _e.what() << std::endl;
+		return -1;
 	}
 	return 0;
 }
